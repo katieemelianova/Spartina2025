@@ -1,6 +1,9 @@
+library(microViz)
+
+
 
 phylo_rennes <- readRDS("/Users/katieemelianova/Desktop/Spartina/JMF_results/JMF-2508-06_16S_raw_phyloseq.rds")
-sample_info <- read_tsv("/Users/katieemelianova/Desktop/Spartina/CommonGardenPaper/Rennes_Sampling.tsv") %>% 
+sample_info <- read_tsv("/Users/katieemelianova/Desktop/Spartina/Spartina2025//Rennes_Sampling.tsv") %>% 
   dplyr::select(Locality, Species, `Sample number`)
 
 
@@ -14,7 +17,6 @@ phylo_rennes@sam_data$compartment <- phylo_rennes@sam_data %>% data.frame() %>% 
   str_replace("s", "soil") %>% 
   replace_na('Unknown')
 
-phylo_rennes@sam_data %>% data.frame() %>% left_join(sample_info, by = c("User_sample_ID_number" = "Sample number")) %>% pull(Locality) %>% replace_na('Unknown')
 phylo_rennes@sam_data$Locality <- phylo_rennes@sam_data %>% data.frame() %>% left_join(sample_info, by = c("User_sample_ID_number" = "Sample number")) %>% pull(Locality) %>% replace_na('Unknown')
 phylo_rennes@sam_data$Species <- phylo_rennes@sam_data %>% data.frame() %>% left_join(sample_info, by = c("User_sample_ID_number" = "Sample number")) %>% pull(Species) %>% replace_na('Unknown')
 
@@ -101,11 +103,21 @@ res_anglica_maritima %>% filter(Family != "Mitochondria") %>% pull(Family) %>% t
 res_anglica_alterniflora %>% filter(Family != "Mitochondria") %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(10) %>% data.frame()
 
 
+phylo_rennes_prop %<>% subset_taxa(!(Family %in% c("Incertae Sedis", "Mitochondria")))
 
-
-ibd %>%
-  tax_transform("clr", rank = "Genus") %>%
+phylo_rennes_prop %>%
+  tax_fix() %>%
+  tax_transform("clr", rank = "Family") %>%
   # when no distance matrix or constraints are supplied, PCA is the default/auto ordination method
   ord_calc() %>%
-  ord_plot(color = "ibd", shape = "DiseaseState", size = 2) +
+  ord_plot(color = "Species", shape = "compartment", size = 2) +
   scale_colour_brewer(palette = "Dark2")
+
+phylo_rennes_prop %>%
+  tax_fix() %>%
+  #tax_transform("clr", rank = "Genus") %>%
+  dist_calc(dist = "bray") %>%
+  ord_calc(method="NMDS") %>%
+  #ord_plot_iris(tax_level = "Genus", ord_plot = "above", anno_colour = "Species")
+  ord_plot(color = "Species", shape = "compartment", size = 2)
+
