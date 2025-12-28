@@ -108,20 +108,26 @@ mean_psynq %>%
 # this could point to the leaves being more crispy, it doesnt seem that this is a consistent problem but one which is specific to maritima
 # light might have an issue getting through the leaves of this species
 psynq %>% 
-  #filter(PAR > 100 & PAR < 180 & LEF > 30 & LEF < 180) %>%
+  filter(PAR > 100 & PAR < 180 & LEF > 30 & LEF < 180) %>%
   ggplot(aes(x=PAR, y=LEF, colour=species)) +
   geom_point(size=4) +
   geom_smooth(method='lm', formula= y~x)
 
 
+qqnorm(resid(m))
+qqline(resid(m))
+
 # I am using linear mixed effects model to account for the multiple measurementsd taken of the same plant
 # I am removing outliers
+# then I am using lstrends to get and compare the slopes of the dots of each species
 m <- lmer(LEF ~ PAR * species + (1|measurement), data = (psynq %>% filter(PAR > 100 & PAR < 180 & LEF > 30 & LEF < 180)))
 mls <- lstrends(m, "species", var="PAR")
 pairs(mls)
 
+# no significant difference in slopes
 
-
+plot(resid(m))
+plot(m)
 
 
 
