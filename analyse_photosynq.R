@@ -4,7 +4,9 @@ library(readr)
 library(stringr)
 library(tidyverse)
 library(ggplot2)
-
+library(car)
+library(lme4)
+library(lsmeans)
 
 
 psynq <- read_delim("/Users/katieemelianova/Desktop/Spartina/France2025/photosynq_results.txt") %>%
@@ -111,18 +113,28 @@ psynq %>%
   filter(PAR > 100 & PAR < 180 & LEF > 30 & LEF < 180) %>%
   ggplot(aes(x=PAR, y=LEF, colour=species)) +
   geom_point(size=4) +
-  geom_smooth(method='lm', formula= y~x)
+  geom_smooth(method="lm", aes(fill = species), alpha=0.2) + 
+  theme(panel.background = element_blank(),
+        axis.text = element_text(size=15),
+        axis.title = element_text(size=20),
+        legend.title = element_blank(),
+        legend.text = element_text(size=12))
+  
 
 
-qqnorm(resid(m))
-qqline(resid(m))
 
 # I am using linear mixed effects model to account for the multiple measurementsd taken of the same plant
 # I am removing outliers
 # then I am using lstrends to get and compare the slopes of the dots of each species
+# if I use random effects for measurement and it has a singular warning, can I then agree that there is no need to include it?
 m <- lmer(LEF ~ PAR * species + (1|measurement), data = (psynq %>% filter(PAR > 100 & PAR < 180 & LEF > 30 & LEF < 180)))
 mls <- lstrends(m, "species", var="PAR")
 pairs(mls)
+
+test
+
+qqnorm(resid(m))
+qqline(resid(m))
 
 # no significant difference in slopes
 
