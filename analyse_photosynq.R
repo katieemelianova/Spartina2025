@@ -8,11 +8,12 @@ library(ggplot2)
 
 
 psynq <- read_delim("/Users/katieemelianova/Desktop/Spartina/France2025/photosynq_results.txt") %>%
-  dplyr::select(LEF, NPQt, PhiNPQ, Phi2, "Light Intensity (PAR)", PhiNO, `Which sample number?`, `Which species?`, `Which locality?`) %>%
+  dplyr::select(LEF, NPQt, PhiNPQ, Phi2, "Light Intensity (PAR)", PhiNO, `Which sample number?`, `Which species?`, `Which locality?`, `which number measurement?`) %>%
   rename(sample_id = `Which sample number?`,
          species = `Which species?`,
          locality = `Which locality?`,
-         PAR = `Light Intensity (PAR)`)
+         PAR = `Light Intensity (PAR)`,
+         measurement=`which number measurement?`)
 
 mean_psynq <- psynq %>% 
   group_by(sample_id) %>%
@@ -87,33 +88,42 @@ t.test(x = mean_psynq %>% filter(species == "anglica") %>% pull(transformed_phi2
        alternative = c("two.sided"))
 
 
+# conclusion: parents have significantly different Phi2 but their hybriod is not different to either one
+# plot could be the scatter plot on left and thern boxplot of values per species with significance
+# phi2 is the amount of light going towards photosynthesis, PhiNPQ is the amount going towards non photochemica quenching i.e. wasted in stress
+# alterniflora has less going to photosynthesis and maritima has more going to photosynthesis
+# a significant difference betrween parents, and the hybrid has an intermediate efficiency of potosynthesis
+
+mean_psynq %>%
+  ggplot(aes(x=species, y=Phi2)) + 
+  geom_boxplot()
+
+
 ####################################
 #       LEF vs PAR             #
 ####################################
 
 
-mean_psynq %>% 
+# PAR does not go above 140 or so for maritima but goes higher for the other two species
+# this could point to the leaves being more crispy, it doesnt seem that this is a consistent problem but one which is specific to maritima
+# light might have an issue getting through the leaves of this species
+psynq %>% 
+  #filter(PAR > 100 & PAR < 180 & LEF > 30 & LEF < 180) %>%
   ggplot(aes(x=PAR, y=LEF, colour=species)) +
   geom_point(size=4) +
-  ylim(30, 60) +
-  xlim(110, 180)
+  geom_smooth(method='lm', formula= y~x)
 
 
-mean_psynq %>%
-  group_by(species) %>%
-  summarise(correl = cor(LEF, PAR))
-
-
-
-
+# I am using linear mixed effects model to account for the multiple measurementsd taken of the same plant
+# I am removing outliers
+m <- lmer(LEF ~ PAR * species + (1|measurement), data = (psynq %>% filter(PAR > 100 & PAR < 180 & LEF > 30 & LEF < 180)))
+mls <- lstrends(m, "species", var="PAR")
+pairs(mls)
 
 
 
-mean_psynq %>% filter(species == "maritima") %>% pull(Phi2) %>% shapiro.test
 
-mean_psynq %>%
-  ggplot(aes(x=species, y=PhiNPQ)) + 
-  geom_boxplot()
+
 
 
 
