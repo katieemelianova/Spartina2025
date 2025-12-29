@@ -116,28 +116,38 @@ gm_mean = function(x, na.rm=TRUE){
   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
 }
 
-# convert to deseq object specifying variable to test DE on, also using only root
-phylo_rennes_deseq <- subset_samples(phylo_rennes) %>%
-  phyloseq_to_deseq2(~Species + compartment:Species)
 
-# row-wise geometric mean of ASV counts - average of each ASV across samples
-phylo_rennes_deseq_geomeans <- apply(counts(phylo_rennes_deseq), 1, gm_mean)
+run_deseq <- function(phylo_object){
+  phylo_deseq <- phylo_object %>% phyloseq_to_deseq2(~ 0 + Species)
+  phylo_deseq_geomeans <- apply(counts(phylo_deseq), 1, gm_mean)
+  phylo_deseq = estimateSizeFactors(phylo_deseq, geoMeans = phylo_deseq_geomeans)
+  phylo_deseq = DESeq(phylo_deseq, fitType="local")
+  return(phylo_deseq)
+}
 
-# estimate size factors and run DESeq
-phylo_rennes_deseq = estimateSizeFactors(phylo_rennes_deseq, geoMeans = phylo_rennes_deseq_geomeans)
-phylo_rennes_deseq = DESeq(phylo_rennes_deseq, fitType="local")
+# convert to deseq object specifying variable to test DE on per compartment
+# then run deseq, using geo means
+# reason for geo means function: https://github.com/joey711/phyloseq/issues/445
+phylo_rennes_deseq_root <- subset_samples(phylo_rennes, compartment == "root") %>% run_deseq()
+phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "rhizome") %>% run_deseq()
+phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "soil") %>% run_deseq()
 
-res = res[order(res$padj, na.last=NA), ]
 alpha = 0.01
-
 resultsNames(phylo_rennes_deseq)
 
 
+results(phylo_rennes_deseq, list("SpeciesSpartina.alternifllora", "SpeciesSpartina.anglica"))
 
-# get significant results sorted by adjusted pvalue and
+# get significant results sorted by adjusted pvalue
 res_alterniflora_maritima = results(phylo_rennes_deseq, contrast=c("Species", "Spartina alternifllora","Spartina maritima")) %>% data.frame() %>% arrange(padj) %>% filter(padj < alpha) %>% rownames_to_column(var="amplicon") %>% left_join(tax_table(phylo_rennes) %>% data.frame() %>% rownames_to_column(var="amplicon"))
 res_anglica_maritima = results(phylo_rennes_deseq, contrast=c("Species", "Spartina anglica","Spartina maritima")) %>% data.frame() %>% arrange(padj) %>% filter(padj < alpha) %>% rownames_to_column(var="amplicon") %>% left_join(tax_table(phylo_rennes) %>% data.frame() %>% rownames_to_column(var="amplicon"))
 res_anglica_alterniflora = results(phylo_rennes_deseq, contrast=c("Species", "Spartina alternifllora","Spartina anglica")) %>% data.frame() %>% arrange(padj) %>% filter(padj < alpha) %>% rownames_to_column(var="amplicon") %>% left_join(tax_table(phylo_rennes) %>% data.frame() %>% rownames_to_column(var="amplicon"))
+
+
+results(phylo_rennes_deseq, contrast=c("Species", "Spartina alternifllora","Spartina maritima")) 
+
+
+
 
 res_alterniflora_maritima %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
 res_anglica_maritima %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
