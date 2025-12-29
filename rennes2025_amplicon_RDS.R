@@ -125,6 +125,10 @@ run_deseq <- function(phylo_object){
   return(phylo_deseq)
 }
 
+annotate_deseq_results <- function(deseq_result){
+  annotated <- deseq_result %>% data.frame() %>% arrange(padj) %>% filter(padj < alpha) %>% rownames_to_column(var="amplicon") %>% left_join(tax_table(phylo_rennes) %>% data.frame() %>% rownames_to_column(var="amplicon"))
+}
+
 # convert to deseq object specifying variable to test DE on per compartment
 # then run deseq, using geo means
 # reason for geo means function: https://github.com/joey711/phyloseq/issues/445
@@ -133,18 +137,43 @@ phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "rhizo
 phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "soil") %>% run_deseq()
 
 alpha = 0.01
-resultsNames(phylo_rennes_deseq)
+resultsNames(phylo_rennes_deseq_root)
+
+# now we can get the per tissue results for contrasts between species
+
+####################################
+#      alterniflora vs anglica     #
+####################################
+
+contrast <- list("SpeciesSpartina.alternifllora", "SpeciesSpartina.anglica")
+
+root_alt_ang <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results()
+rhiz_alt_ang <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results()
+soil_alt_ang <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results()
 
 
-results(phylo_rennes_deseq, list("SpeciesSpartina.alternifllora", "SpeciesSpartina.anglica"))
+####################################
+#      alterniflora vs maritima    #
+####################################
+contrast <- list("SpeciesSpartina.alternifllora", "SpeciesSpartina.maritima")
 
-# get significant results sorted by adjusted pvalue
-res_alterniflora_maritima = results(phylo_rennes_deseq, contrast=c("Species", "Spartina alternifllora","Spartina maritima")) %>% data.frame() %>% arrange(padj) %>% filter(padj < alpha) %>% rownames_to_column(var="amplicon") %>% left_join(tax_table(phylo_rennes) %>% data.frame() %>% rownames_to_column(var="amplicon"))
-res_anglica_maritima = results(phylo_rennes_deseq, contrast=c("Species", "Spartina anglica","Spartina maritima")) %>% data.frame() %>% arrange(padj) %>% filter(padj < alpha) %>% rownames_to_column(var="amplicon") %>% left_join(tax_table(phylo_rennes) %>% data.frame() %>% rownames_to_column(var="amplicon"))
-res_anglica_alterniflora = results(phylo_rennes_deseq, contrast=c("Species", "Spartina alternifllora","Spartina anglica")) %>% data.frame() %>% arrange(padj) %>% filter(padj < alpha) %>% rownames_to_column(var="amplicon") %>% left_join(tax_table(phylo_rennes) %>% data.frame() %>% rownames_to_column(var="amplicon"))
+root_alt_mar <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results()
+rhiz_alt_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results()
+soil_alt_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results()
 
 
-results(phylo_rennes_deseq, contrast=c("Species", "Spartina alternifllora","Spartina maritima")) 
+####################################
+#      anglica vs maritima         #
+####################################
+contrast <- list("SpeciesSpartina.anglica", "SpeciesSpartina.maritima")
+
+root_ang_mar <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results()
+rhiz_ang_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results()
+soil_ang_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results()
+
+
+
+
 
 
 
