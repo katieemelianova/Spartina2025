@@ -172,9 +172,29 @@ rhiz_ang_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq
 soil_ang_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results()
 
 
+# anglica and maritima have far fewer differentially abundant taxa than the other two comparisons
+root_ang_mar$Family %>% length()
+root_alt_mar$Family %>% length()
+root_alt_ang$Family %>% length()
+
+soil_ang_mar$Family %>% length()
+soil_alt_mar$Family %>% length()
+soil_alt_ang$Family %>% length()
+
+rhiz_ang_mar$Family %>% length()
+rhiz_alt_mar$Family %>% length()
+rhiz_alt_ang$Family %>% length()
 
 
+# an example of a command to get reduced abundance ASVs in anglica compared to maritima
+root_ang_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon)
 
+# take this same command and plug it into an abundance plot by species
+prune_taxa(root_ang_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes) %>%
+  tax_glom("Family") %>%
+  plot_bar(fill="sample_Species") + facet_wrap(~sample_Species, scales="free_x", ncol=3)
+
+# a nice santity check
 
 
 
