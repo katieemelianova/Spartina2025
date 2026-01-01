@@ -172,6 +172,26 @@ rhiz_ang_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq
 soil_ang_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results()
 
 
+
+
+# an example of a command to get a significantly lower abundance ASVs in anglica compared to maritima
+root_ang_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon)
+
+# take this same command and plug it into an abundance plot by species
+prune_taxa(soil_alt_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes) %>%
+  tax_glom("Family") %>%
+  plot_bar(fill="sample_Species") + facet_wrap(~sample_Species, scales="free_x", ncol=3)
+
+# a nice sanity check
+
+
+
+# now we have differential abundance for ASVs
+# we can ask which families are most represented in ASVs which are most abundant
+
+# questions
+
+# 1. how many ASVs are differentially abundant between each species pair?
 # anglica and maritima have far fewer differentially abundant taxa than the other two comparisons
 root_ang_mar$Family %>% length()
 root_alt_mar$Family %>% length()
@@ -186,15 +206,28 @@ rhiz_alt_mar$Family %>% length()
 rhiz_alt_ang$Family %>% length()
 
 
-# an example of a command to get reduced abundance ASVs in anglica compared to maritima
-root_ang_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon)
+# 2. which families show differential abundance in each tissue between hybrid and parents but not between parents
+# not present in alterniflora - maritima but present in anglica-mariitma and anglica-alterniflora
+# none
+setdiff(intersect(root_ang_mar$Family, root_alt_ang$Family), root_alt_mar$Family)
 
-# take this same command and plug it into an abundance plot by species
-prune_taxa(root_ang_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes) %>%
-  tax_glom("Family") %>%
-  plot_bar(fill="sample_Species") + facet_wrap(~sample_Species, scales="free_x", ncol=3)
 
-# a nice santity check
+
+# 3. which families are unique to a single species across all localities?
+
+
+phylo_rennes_prop_melt <- phylo_rennes_prop %>% psmelt() %>% dplyr::select(c("OTU", "Sample", "Abundance" , "User_sample_ID_number", "compartment", "Locality", "sample_Species", "study", "Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
+
+
+# get families which are found n both localities for each species
+phylo_rennes_prop_melt %>% filter(compartment == "root" & Abundance > 0.01) %>% 
+  group_by(Family, sample_Species, Locality) %>% 
+  summarise(n()) %>% # need to get some function here just to get data broken down by family/species/locality, the n()n is not really important
+  ungroup() %>% 
+  group_by(sample_Species, Family) %>% # now regroup by species and family of bacteria
+  summarise(length(Locality)) %>% # ask how many localities each family is found in per species
+  filter(`length(Locality)` == 2) %>% # get those which are found in two localities
+  data.frame()
 
 
 
