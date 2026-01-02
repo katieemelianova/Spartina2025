@@ -221,10 +221,25 @@ setdiff(intersect(root_ang_mar$Family, root_alt_ang$Family), root_alt_mar$Family
 
 
 # 3. which families are present in all species across all localities?
-# Answer = 
-# melt the relative abundance phyloseq object to easily access data
-phylo_rennes_prop_melt <- phylo_rennes_prop %>% psmelt() %>% dplyr::select(c("OTU", "Sample", "Abundance" , "User_sample_ID_number", "compartment", "Locality", "sample_Species", "Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Answer = Desulfobacteraceae, Desulfocapsaceae, Flavobacteriaceae, Kiritimatiellaceae, Sedimenticolaceae, Thioalkalispiraceae"
+# melt the relative abundance phyloseq object to easily access data
+phylo_rennes_prop_melt <- phylo_rennes_prop %>% tax_glom("Family") %>% filter_taxa(function(x) mean(x) > 0.01, TRUE) %>% psmelt() %>% dplyr::select(c("OTU", "Sample", "Abundance" , "User_sample_ID_number", "compartment", "Locality", "sample_Species", "Domain", "Phylum", "Class", "Order", "Family"))
 
 # get families present in both locvalities for all three species
 present_in_all <- phylo_rennes_prop_melt %>% filter(compartment == "root" & Abundance > 0.01) %>% 
@@ -237,26 +252,15 @@ present_in_all <- phylo_rennes_prop_melt %>% filter(compartment == "root" & Abun
   filter(`length(sample_Species)` == 3) %>% #get families in which all three species are present in both localities
   drop_na() %>%
   pull(Family)
-  
-  
 
-  
-  
-  
-
+# boxplot
 phylo_rennes_prop_melt %>% 
   filter(Family %in% present_in_all & compartment == "root" & Abundance > 0.01) %>%
   dplyr::select(Abundance, Family, sample_Species, Locality) %>%
   ggplot(aes(x=Family,y=log(Abundance), fill=sample_Species)) + 
   geom_boxplot()
 
-
-
-
-present_in_all <- c("Desulfobacteraceae", "Desulfocapsaceae", "Flavobacteriaceae", "Kiritimatiellaceae", "Sedimenticolaceae", "Thioalkalispiraceae")
-
-# get relative abundance of families which are present in all three species at both localities
-# make barplot of them by individual
+# barplot
 subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>% 
   subset_samples(compartment == "rhizome") %>%
   subset_taxa(!(is.na(Family))) %>% 
@@ -270,6 +274,44 @@ subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>%
         legend.text = element_text(size=20),
         axis.ticks.x = element_blank()) +
   ylab("Relative Abundance")
+
+
+# 4. which families arefound only in one species?
+
+# having had a play around with this I'm not sure its wise to proceed as below
+# present in all species at appreciable amopunts is fine, but asking which species are found in one species but not in others requires filering for abundance and this seem sto be getting into problems of variable dropout rates, taxa being reported because they are just one side of a threshold cutoff
+# also it seems as though solutions I have played about with like sd of the means of species per family have strayed into differential abundance territory which I have already done
+# so I think either I can leave this or consult with someione frim DOME
+
+one_species_only <- phylo_rennes_prop_melt %>% filter(compartment == "root") %>% 
+  group_by(Family, sample_Species, Locality) %>%
+  summarise(mean_abundance=mean(Abundance)) %>% # get mean abundance of each fanily oper species per locality
+  filter(mean_abundance > 0.01) %>%
+  summarise(length(unique(Locality))) %>% # how many localities is each family found in per species?
+  filter(`length(unique(Locality))` == 2) %>% #get families which are present in both localities per species
+  ungroup() %>%
+  group_by(Family) %>%
+  summarise(length(sample_Species)) %>% # how many species are both-locality families present in?
+  filter(`length(sample_Species)` == 1) %>%
+  pull(Family)
+
+
+# barplot
+subset_taxa(phylo_rennes_prop_family_abfilt, Family %in% one_species_only) %>% 
+  subset_samples(compartment == "root") %>%
+  subset_taxa(!(is.na(Family))) %>% 
+  tax_glom("Family") %>%
+  plot_bar(fill="Family") + facet_wrap(~sample_Species+Locality, scales="free_x", ncol=2) + 
+  theme(strip.text.x = element_text(size=20),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size=25),
+        legend.title = element_blank(),
+        legend.text = element_text(size=20),
+        axis.ticks.x = element_blank()) +
+  ylab("Relative Abundance")
+
+
 
 
 
