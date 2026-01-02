@@ -1,5 +1,12 @@
 library(microViz)
 library(DESeq2)
+library(dplyr)
+library(magrittr)
+library(readr)
+library(stringr)
+library(tidyverse)
+library(DESeq2)
+library(phyloseq)
 
 #####################################################
 #           Read in RDS and sample data             # 
@@ -192,7 +199,7 @@ prune_taxa(soil_alt_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo
 # questions
 
 # 1. how many ASVs are differentially abundant between each species pair?
-# anglica and maritima have far fewer differentially abundant taxa than the other two comparisons
+# Answer = anglica and maritima have far fewer differentially abundant taxa than the other two comparisons
 root_ang_mar$Family %>% length()
 root_alt_mar$Family %>% length()
 root_alt_ang$Family %>% length()
@@ -208,38 +215,53 @@ rhiz_alt_ang$Family %>% length()
 
 # 2. which families show differential abundance in each tissue between hybrid and parents but not between parents
 # not present in alterniflora - maritima but present in anglica-mariitma and anglica-alterniflora
-# none
+# Answer = none
 setdiff(intersect(root_ang_mar$Family, root_alt_ang$Family), root_alt_mar$Family)
 
 
 
-# 3. which families are unique to a single species across all localities?
+# 3. which families are present in all species across all localities?
+# Answer = 
+# melt the relative abundance phyloseq object to easily access data
+phylo_rennes_prop_melt <- phylo_rennes_prop %>% psmelt() %>% dplyr::select(c("OTU", "Sample", "Abundance" , "User_sample_ID_number", "compartment", "Locality", "sample_Species", "Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
 
 
-phylo_rennes_prop_melt <- phylo_rennes_prop %>% psmelt() %>% dplyr::select(c("OTU", "Sample", "Abundance" , "User_sample_ID_number", "compartment", "Locality", "sample_Species", "study", "Domain", "Phylum", "Class", "Order", "Family", "Genus", "Species"))
+# get families present in both locvalities for all three species
+present_in_all <- phylo_rennes_prop_melt %>% filter(compartment == "root" & Abundance > 0.01) %>% 
+  group_by(Family, sample_Species)  %>%
+  summarise(length(unique(Locality))) %>% # how many localities is each family found in per species?
+  filter(`length(unique(Locality))` == 2) %>% #get families which are present in both localities per species
+  ungroup() %>%
+  group_by(Family) %>%
+  summarise(length(sample_Species)) %>% # how many species are both-locality families present in?
+  filter(`length(sample_Species)` == 3) %>% #get families in which all three species are present in both localities
+  drop_na() %>%
+  pull(Family)
+  
+  
+
+  
+  
+  
+
+phylo_rennes_prop_melt %>% 
+  filter(Family %in% present_in_all & compartment == "root" & Abundance > 0.01) %>%
+  dplyr::select(Abundance, Family, sample_Species, Locality) %>%
+  ggplot(aes(x=Family,y=log(Abundance), fill=sample_Species)) + 
+  geom_boxplot()
 
 
-# get families which are found n both localities for each species
-phylo_rennes_prop_melt %>% filter(compartment == "root" & Abundance > 0.01) %>% 
-  group_by(Family, sample_Species, Locality) %>% 
-  summarise(n()) %>% # need to get some function here just to get data broken down by family/species/locality, the n()n is not really important
-  ungroup() %>% 
-  group_by(sample_Species, Family) %>% # now regroup by species and family of bacteria
-  summarise(length(Locality)) %>% # ask how many localities each family is found in per species
-  filter(`length(Locality)` == 2) %>% # get those which are found in two localities
-  data.frame()
 
 
+present_in_all <- c("Desulfobacteraceae", "Desulfocapsaceae", "Flavobacteriaceae", "Kiritimatiellaceae", "Sedimenticolaceae", "Thioalkalispiraceae")
 
-res_alterniflora_maritima %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
-res_anglica_maritima %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
-res_anglica_alterniflora %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
-
-subset_taxa(phylo_rennes_prop, Family == "Desulfosarcinaceae") %>% 
-  subset_samples(compartment == "root") %>%
+# get relative abundance of families which are present in all three species at both localities
+# make barplot of them by individual
+subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>% 
+  subset_samples(compartment == "rhizome") %>%
   subset_taxa(!(is.na(Family))) %>% 
   tax_glom("Family") %>%
-  plot_bar(fill="Family") + facet_wrap(~sample_Species, scales="free_x", ncol=3) + 
+  plot_bar(fill="Family") + facet_wrap(~sample_Species+Locality, scales="free_x", ncol=2) + 
   theme(strip.text.x = element_text(size=20),
         axis.text.x = element_blank(),
         axis.text.y = element_text(size=20),
@@ -248,6 +270,12 @@ subset_taxa(phylo_rennes_prop, Family == "Desulfosarcinaceae") %>%
         legend.text = element_text(size=20),
         axis.ticks.x = element_blank()) +
   ylab("Relative Abundance")
+
+
+
+res_alterniflora_maritima %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
+res_anglica_maritima %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
+res_anglica_alterniflora %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
 
 
 
