@@ -136,6 +136,15 @@ annotate_deseq_results <- function(deseq_result){
   annotated <- deseq_result %>% data.frame() %>% arrange(padj) %>% filter(padj < alpha) %>% rownames_to_column(var="amplicon") %>% left_join(tax_table(phylo_rennes) %>% data.frame() %>% rownames_to_column(var="amplicon"))
 }
 
+#https://github.com/joey711/phyloseq/issues/763 
+# make this into a funxction and do something like this for the oter species
+alt_root_sampleids <- subset_samples(phylo_rennes, compartment == "root" & Species == "Spartina alternifllora") %>% sample_data() %>% rownames()
+alt_root_samples <- phylo_rennes@otu_table[,alt_root_sampleids]
+to_keep_otus <- alt_root_samples[rowSums(alt_root_samples > 5) >= 3, ] %>% rownames()
+my_subset <- subset(otu_table(phylo_rennes), rownames(otu_table(phylo_rennes)) %in% to_keep_otus)
+new_physeq <- merge_phyloseq(my_subset, tax_table(phylo_rennes), sample_data(phylo_rennes))
+
+
 # convert to deseq object specifying variable to test DE on per compartment
 # then run deseq, using geo means
 # reason for geo means function: https://github.com/joey711/phyloseq/issues/445
@@ -147,6 +156,13 @@ alpha = 0.01
 resultsNames(phylo_rennes_deseq_root)
 
 # now we can get the per tissue results for contrasts between species
+
+
+### TODO! might need to filter taxa by their abundance in N samples per group
+# like in RNAseq
+# whta I would do is get the OTU table and then just subset OTU by abundance in each species/Locality grouping, one by one
+# then I would get all these OTUs and subset the phyloseq object using those
+
 
 ####################################
 #      alterniflora vs anglica     #
@@ -189,7 +205,7 @@ prune_taxa(soil_alt_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo
   tax_glom("Family") %>%
   plot_bar(fill="sample_Species") + facet_wrap(~sample_Species, scales="free_x", ncol=3)
 
-# a nice sanity check
+# a nice sanity check to see that ASVs differentially abundant in barplot format indeed look so
 
 
 
@@ -200,42 +216,41 @@ prune_taxa(soil_alt_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo
 
 # 1. how many ASVs are differentially abundant between each species pair?
 # Answer = anglica and maritima have far fewer differentially abundant taxa than the other two comparisons
-root_ang_mar$Family %>% length()
-root_alt_mar$Family %>% length()
-root_alt_ang$Family %>% length()
 
-soil_ang_mar$Family %>% length()
-soil_alt_mar$Family %>% length()
-soil_alt_ang$Family %>% length()
-
-rhiz_ang_mar$Family %>% length()
-rhiz_alt_mar$Family %>% length()
-rhiz_alt_ang$Family %>% length()
+pdf("differentially_abundant_ASV.pdf", height=7, width=12)
+data.frame(number_genus_diff_abundant = c(root_ang_mar$Family %>% length(), soil_ang_mar$Family %>% length(), rhiz_ang_mar$Family %>% length(),
+                                          root_alt_mar$Family %>% length(), soil_alt_mar$Family %>% length(), rhiz_alt_mar$Family %>% length(),
+                                          root_alt_ang$Family %>% length(), soil_alt_ang$Family %>% length(), rhiz_alt_ang$Family %>% length()),
+           compartment=rep(c("root", "rhizosphere", "rhizome"), 3),
+           comparison=c(rep("anglica vs maritima", 3), rep("anterniflora vs maritima", 3), rep("anterniflora vs anglica", 3))) %>%
+  ggplot(aes(y=comparison, x=number_genus_diff_abundant, fill=compartment)) +
+  geom_bar(stat="identity") + 
+  scale_fill_manual(values=c("skyblue2", "salmon1", "khaki3"), labels=c("Rhizome", "Rhizosphere", "Root")) + 
+                      xlab("Differentially Abundant ASVs") + 
+                      ylab("Comparison") + 
+  theme(axis.title = element_text(size=25),
+        axis.text = element_text(size=16))
+dev.off()
 
 
 # 2. which families show differential abundance in each tissue between hybrid and parents but not between parents
 # not present in alterniflora - maritima but present in anglica-mariitma and anglica-alterniflora
-# Answer = none
+# i.e. transgressive hybrid bacterial taxa
+# Answer=
+# root: none
+# rhizome: Cyclobacteriaceae, Desulfocapsaceae, Kiritimatiellaceae
+# soil: Sulfurovaceae
+
+# root
 setdiff(intersect(root_ang_mar$Family, root_alt_ang$Family), root_alt_mar$Family)
+# rhizome 
+setdiff(intersect(rhiz_ang_mar$Family, rhiz_alt_ang$Family), rhiz_alt_mar$Family)
+#soil
+setdiff(intersect(soil_ang_mar$Family, soil_alt_ang$Family), soil_alt_mar$Family)
 
 
 
 # 3. which families are present in all species across all localities?
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # Answer = Desulfobacteraceae, Desulfocapsaceae, Flavobacteriaceae, Kiritimatiellaceae, Sedimenticolaceae, Thioalkalispiraceae"
 # melt the relative abundance phyloseq object to easily access data
@@ -254,11 +269,21 @@ present_in_all <- phylo_rennes_prop_melt %>% filter(compartment == "root" & Abun
   pull(Family)
 
 # boxplot
+pdf("min_abnundance0.1_families_root.pdf", height=8, width=9)
 phylo_rennes_prop_melt %>% 
   filter(Family %in% present_in_all & compartment == "root" & Abundance > 0.01) %>%
   dplyr::select(Abundance, Family, sample_Species, Locality) %>%
-  ggplot(aes(x=Family,y=log(Abundance), fill=sample_Species)) + 
-  geom_boxplot()
+  ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
+  geom_boxplot(width = 0.6) +
+  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
+  facet_wrap(~Family, scales="free_x") +
+  theme(strip.text.x = element_text(size = 13),
+        axis.title = element_text(size=20),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size=15)) +
+  ylab("Log(Root Abundance)")
+dev.off()
+  
 
 # barplot
 subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>% 
@@ -279,7 +304,7 @@ subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>%
 # 4. which families arefound only in one species?
 
 # having had a play around with this I'm not sure its wise to proceed as below
-# present in all species at appreciable amopunts is fine, but asking which species are found in one species but not in others requires filering for abundance and this seem sto be getting into problems of variable dropout rates, taxa being reported because they are just one side of a threshold cutoff
+# present in all species at appreciable amounts is fine, but asking which species are found in one species but not in others requires filering for abundance and this seems to be getting into problems of variable dropout rates, taxa being reported because they are just one side of a threshold cutoff
 # also it seems as though solutions I have played about with like sd of the means of species per family have strayed into differential abundance territory which I have already done
 # so I think either I can leave this or consult with someione frim DOME
 
@@ -297,7 +322,7 @@ one_species_only <- phylo_rennes_prop_melt %>% filter(compartment == "root") %>%
 
 
 # barplot
-subset_taxa(phylo_rennes_prop_family_abfilt, Family %in% one_species_only) %>% 
+subset_taxa(phylo_rennes_prop_family_abfilt, Family %in% rhiz_alt_ang$Family) %>% 
   subset_samples(compartment == "root") %>%
   subset_taxa(!(is.na(Family))) %>% 
   tax_glom("Family") %>%
