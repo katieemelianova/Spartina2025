@@ -256,22 +256,32 @@ setdiff(intersect(soil_ang_mar$Family, soil_alt_ang$Family), soil_alt_mar$Family
 # melt the relative abundance phyloseq object to easily access data
 phylo_rennes_prop_melt <- phylo_rennes_prop %>% tax_glom("Family") %>% filter_taxa(function(x) mean(x) > 0.01, TRUE) %>% psmelt() %>% dplyr::select(c("OTU", "Sample", "Abundance" , "User_sample_ID_number", "compartment", "Locality", "sample_Species", "Domain", "Phylum", "Class", "Order", "Family"))
 
+get_present_in_all <- function(melted_phyloseq, comp, mean_abundance_min){
+  to_return <- melted_phyloseq %>% filter(compartment == comp & Abundance > mean_abundance_min) %>% 
+    group_by(Family, sample_Species)  %>%
+    summarise(length(unique(Locality))) %>% # how many localities is each family found in per species?
+    filter(`length(unique(Locality))` == 2) %>% #get families which are present in both localities per species
+    ungroup() %>%
+    group_by(Family) %>%
+    summarise(length(sample_Species)) %>% # how many species are both-locality families present in?
+    filter(`length(sample_Species)` == 3) %>% #get families in which all three species are present in both localities
+    drop_na() %>%
+    pull(Family)
+  return(to_return)
+}
+
+
 # get families present in both locvalities for all three species
-present_in_all <- phylo_rennes_prop_melt %>% filter(compartment == "root" & Abundance > 0.01) %>% 
-  group_by(Family, sample_Species)  %>%
-  summarise(length(unique(Locality))) %>% # how many localities is each family found in per species?
-  filter(`length(unique(Locality))` == 2) %>% #get families which are present in both localities per species
-  ungroup() %>%
-  group_by(Family) %>%
-  summarise(length(sample_Species)) %>% # how many species are both-locality families present in?
-  filter(`length(sample_Species)` == 3) %>% #get families in which all three species are present in both localities
-  drop_na() %>%
-  pull(Family)
+present_in_all_root <- get_present_in_all(phylo_rennes_prop_melt, "root", 0.01)
+present_in_all_rhizome <- get_present_in_all(phylo_rennes_prop_melt, "rhizome", 0.01)
+present_in_all_soil <- get_present_in_all(phylo_rennes_prop_melt, "soil", 0.01)
+
 
 # boxplot
-pdf("min_abnundance0.1_families_root.pdf", height=8, width=9)
-phylo_rennes_prop_melt %>% 
-  filter(Family %in% present_in_all & compartment == "root" & Abundance > 0.01) %>%
+
+
+min_abnundance0.1_families_root <- phylo_rennes_prop_melt %>% 
+  filter(Family %in% present_in_all_root & compartment == "root" & Abundance > 0.01) %>%
   dplyr::select(Abundance, Family, sample_Species, Locality) %>%
   ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
   geom_boxplot(width = 0.6) +
@@ -280,10 +290,49 @@ phylo_rennes_prop_melt %>%
   theme(strip.text.x = element_text(size = 13),
         axis.title = element_text(size=20),
         axis.text.x = element_blank(),
-        axis.text.y = element_text(size=15)) +
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size=15),
+        strip.background =element_rect(fill="khaki3"),
+        legend.position="none") +
   ylab("Log(Root Abundance)")
+
+min_abnundance0.1_families_rhizome <- phylo_rennes_prop_melt %>% 
+  filter(Family %in% present_in_all_rhizome & compartment == "rhizome" & Abundance > 0.01) %>%
+  dplyr::select(Abundance, Family, sample_Species, Locality) %>%
+  ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
+  geom_boxplot(width = 0.6) +
+  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
+  facet_wrap(~Family, scales="free_x") +
+  theme(strip.text.x = element_text(size = 13),
+        axis.title = element_text(size=20),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size=15),
+        strip.background =element_rect(fill="skyblue2"),
+        strip.text = element_text(size=10)) +
+  ylab("Log(Rhizome Abundance)")
+
+min_abnundance0.1_families_rhizosphere <- phylo_rennes_prop_melt %>% 
+  filter(Family %in% present_in_all_soil & compartment == "soil" & Abundance > 0.01) %>%
+  dplyr::select(Abundance, Family, sample_Species, Locality) %>%
+  ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
+  geom_boxplot(width = 0.6) +
+  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
+  facet_wrap(~Family, scales="free_x") +
+  theme(strip.text.x = element_text(size = 13),
+        axis.title = element_text(size=20),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size=15),
+        strip.background =element_rect(fill="salmon1"),
+        legend.position="none") +
+  ylab("Log(Rhizosphere Abundance)")
+
+pdf("min_abnundance0.1_families_compartments.pdf", height=14, width=7)
+(min_abnundance0.1_families_root / min_abnundance0.1_families_rhizome / min_abnundance0.1_families_rhizosphere)
 dev.off()
-  
+
+
 
 # barplot
 subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>% 
@@ -301,6 +350,8 @@ subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>%
   ylab("Relative Abundance")
 
 
+
+
 # 4. which families arefound only in one species?
 
 # having had a play around with this I'm not sure its wise to proceed as below
@@ -308,17 +359,25 @@ subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>%
 # also it seems as though solutions I have played about with like sd of the means of species per family have strayed into differential abundance territory which I have already done
 # so I think either I can leave this or consult with someione frim DOME
 
-one_species_only <- phylo_rennes_prop_melt %>% filter(compartment == "root") %>% 
-  group_by(Family, sample_Species, Locality) %>%
-  summarise(mean_abundance=mean(Abundance)) %>% # get mean abundance of each fanily oper species per locality
-  filter(mean_abundance > 0.01) %>%
-  summarise(length(unique(Locality))) %>% # how many localities is each family found in per species?
-  filter(`length(unique(Locality))` == 2) %>% #get families which are present in both localities per species
-  ungroup() %>%
-  group_by(Family) %>%
-  summarise(length(sample_Species)) %>% # how many species are both-locality families present in?
-  filter(`length(sample_Species)` == 1) %>%
-  pull(Family)
+
+get_one_species_only <- function(melted_phyloseq, comp, mean_abundance_min){
+  to_return <- melted_phyloseq %>% filter(compartment == comp) %>% 
+    group_by(Family, sample_Species, Locality) %>%
+    summarise(mean_abundance=mean(Abundance)) %>% # get mean abundance of each fanily oper species per locality
+    filter(mean_abundance > mean_abundance_min) %>%
+    summarise(length(unique(Locality))) %>% # how many localities is each family found in per species?
+    filter(`length(unique(Locality))` == 2) %>% #get families which are present in both localities per species
+    ungroup() %>%
+    group_by(Family) %>%
+    summarise(length(sample_Species)) %>% # how many species are both-locality families present in?
+    filter(`length(sample_Species)` == 1) %>%
+    pull(Family)
+  return(to_return)
+}
+
+one_species_only_root <- get_one_species_only(phylo_rennes_prop_melt, "root", 0.01)
+one_species_only_rhizome <- get_one_species_only(phylo_rennes_prop_melt, "rhizome", 0.01)
+one_species_only_soil <- get_one_species_only(phylo_rennes_prop_melt, "soil", 0.01)
 
 
 # barplot
