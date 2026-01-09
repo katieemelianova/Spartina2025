@@ -124,8 +124,12 @@ gm_mean = function(x, na.rm=TRUE){
 }
 
 
-run_deseq <- function(phylo_object){
-  phylo_deseq <- phylo_object %>% phyloseq_to_deseq2(~ 0 + Species)
+
+
+  
+run_deseq <- function(phylo_object, design_term){
+  formula_parsed<-paste("~", design_term)
+  phylo_deseq <- phylo_object %>% phyloseq_to_deseq2(as.formula(formula_parsed))
   phylo_deseq_geomeans <- apply(counts(phylo_deseq), 1, gm_mean)
   phylo_deseq = estimateSizeFactors(phylo_deseq, geoMeans = phylo_deseq_geomeans)
   phylo_deseq = DESeq(phylo_deseq, fitType="local")
@@ -148,9 +152,19 @@ new_physeq <- merge_phyloseq(my_subset, tax_table(phylo_rennes), sample_data(phy
 # convert to deseq object specifying variable to test DE on per compartment
 # then run deseq, using geo means
 # reason for geo means function: https://github.com/joey711/phyloseq/issues/445
-phylo_rennes_deseq_root <- subset_samples(phylo_rennes, compartment == "root") %>% run_deseq()
-phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "rhizome") %>% run_deseq()
-phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "soil") %>% run_deseq()
+phylo_rennes_deseq_root <- subset_samples(phylo_rennes, compartment == "root") %>% run_deseq("0 + Species")
+phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "rhizome") %>% run_deseq("0 + Species")
+phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "soil") %>% run_deseq("0 + Species")
+
+phylo_rennes_deseq_alt_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina alternifllora" & compartment %in% c("root", "soil")) %>% run_deseq("0 + compartment")
+phylo_rennes_deseq_ang_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina anglica" & compartment %in% c("root", "soil")) %>% run_deseq("0 + compartment")
+phylo_rennes_deseq_mar_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina maritima" & compartment %in% c("root", "soil")) %>% run_deseq("0 + compartment")
+
+
+phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "rhizome") %>% run_deseq("0 + Species")
+phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "soil") %>% run_deseq("0 + Species")
+
+
 
 alpha = 0.01
 resultsNames(phylo_rennes_deseq_root)
@@ -206,8 +220,6 @@ prune_taxa(soil_alt_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo
   plot_bar(fill="sample_Species") + facet_wrap(~sample_Species, scales="free_x", ncol=3)
 
 # a nice sanity check to see that ASVs differentially abundant in barplot format indeed look so
-
-
 
 # now we have differential abundance for ASVs
 # we can ask which families are most represented in ASVs which are most abundant
@@ -286,13 +298,14 @@ min_abnundance0.1_families_root <- phylo_rennes_prop_melt %>%
   ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
   geom_boxplot(width = 0.6) +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
-  facet_wrap(~Family, scales="free_x") +
+  facet_wrap(~Family, scales="free_x", ncol=5) +
   theme(strip.text.x = element_text(size = 13),
-        axis.title = element_text(size=20),
+        axis.title = element_text(size=14),
         axis.text.x = element_blank(),
         axis.title.x = element_blank(),
         axis.text.y = element_text(size=15),
         strip.background =element_rect(fill="khaki3"),
+        strip.text = element_text(size=16),
         legend.position="none") +
   ylab("Log(Root Abundance)")
 
@@ -302,14 +315,14 @@ min_abnundance0.1_families_rhizome <- phylo_rennes_prop_melt %>%
   ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
   geom_boxplot(width = 0.6) +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
-  facet_wrap(~Family, scales="free_x") +
+  facet_wrap(~Family, scales="free_x", ncol=5) +
   theme(strip.text.x = element_text(size = 13),
-        axis.title = element_text(size=20),
+        axis.title = element_text(size=14),
         axis.text.x = element_blank(),
         axis.title.x = element_blank(),
         axis.text.y = element_text(size=15),
         strip.background =element_rect(fill="skyblue2"),
-        strip.text = element_text(size=10)) +
+        strip.text = element_text(size=16)) +
   ylab("Log(Rhizome Abundance)")
 
 min_abnundance0.1_families_rhizosphere <- phylo_rennes_prop_melt %>% 
@@ -318,20 +331,20 @@ min_abnundance0.1_families_rhizosphere <- phylo_rennes_prop_melt %>%
   ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
   geom_boxplot(width = 0.6) +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
-  facet_wrap(~Family, scales="free_x") +
+  facet_wrap(~Family, scales="free_x", ncol=5) +
   theme(strip.text.x = element_text(size = 13),
-        axis.title = element_text(size=20),
+        axis.title = element_text(size=14),
         axis.text.x = element_blank(),
         axis.title.x = element_blank(),
         axis.text.y = element_text(size=15),
         strip.background =element_rect(fill="salmon1"),
-        legend.position="none") +
+        legend.position="none",
+        strip.text = element_text(size=16)) +
   ylab("Log(Rhizosphere Abundance)")
 
-pdf("min_abnundance0.1_families_compartments.pdf", height=14, width=7)
-(min_abnundance0.1_families_root / min_abnundance0.1_families_rhizome / min_abnundance0.1_families_rhizosphere)
+pdf("min_abnundance0.1_families_compartments.pdf", height=11, width=12)
+(min_abnundance0.1_families_root / min_abnundance0.1_families_rhizome / min_abnundance0.1_families_rhizosphere) +  plot_layout(heights = c(2, 2, 1))
 dev.off()
-
 
 
 # barplot
@@ -348,8 +361,6 @@ subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>%
         legend.text = element_text(size=20),
         axis.ticks.x = element_blank()) +
   ylab("Relative Abundance")
-
-
 
 
 # 4. which families arefound only in one species?
@@ -398,10 +409,6 @@ subset_taxa(phylo_rennes_prop_family_abfilt, Family %in% rhiz_alt_ang$Family) %>
 
 
 
-
-res_alterniflora_maritima %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
-res_anglica_maritima %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
-res_anglica_alterniflora %>% pull(Family) %>% table() %>% sort(decreasing = TRUE) %>% head(5) %>% data.frame()
 
 
 
