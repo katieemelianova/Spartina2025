@@ -8,6 +8,21 @@ library(tidyverse)
 library(DESeq2)
 library(phyloseq)
 
+######################################################################
+#          functional annotation info for taxa from Rolando paper    #
+######################################################################
+
+
+functional <- readxl::read_xlsx("/Users/katieemelianova/Desktop/Spartina/JR_functionally_annotated_genera.xlsx", skip=2) %>% 
+  dplyr::select("S/Sulfate reducing genera", "Sulfur oxidizing genera", "Iron oxidizing genera", "Nitrifying genera") %>%
+  set_colnames(c("sulfate_reducers", "sulfur_oxidisers", "iron_oxidisers", "nitrifiers"))
+
+sulfate_reducers <- functional %>% dplyr::select(sulfate_reducers) %>% drop_na() %>% pull() %>% str_replace_all("_", " ")
+sulfur_oxidisers <- functional %>% dplyr::select(sulfur_oxidisers) %>% drop_na() %>% pull() %>% str_replace_all("_", " ")
+iron_oxidisers <- functional %>% dplyr::select(iron_oxidisers) %>% drop_na() %>% pull() %>% str_replace_all("_", " ")
+nitrifiers <- functional %>% dplyr::select(nitrifiers) %>% drop_na() %>% pull() %>% str_replace_all("_", " ")
+
+
 #####################################################
 #           Read in RDS and sample data             # 
 #####################################################
@@ -161,10 +176,6 @@ phylo_rennes_deseq_ang_root_rhizosphere <- subset_samples(phylo_rennes, Species 
 phylo_rennes_deseq_mar_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina maritima" & compartment %in% c("root", "soil")) %>% run_deseq("0 + compartment")
 
 
-phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "rhizome") %>% run_deseq("0 + Species")
-phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "soil") %>% run_deseq("0 + Species")
-
-
 
 alpha = 0.01
 resultsNames(phylo_rennes_deseq_root)
@@ -209,7 +220,61 @@ rhiz_ang_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq
 soil_ang_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results()
 
 
+#############################################
+#      alterniflora root vs rhizosphere     #
+#############################################
 
+alt_root_rhizosphere <- phylo_rennes_deseq_alt_root_rhizosphere %>% results() %>% annotate_deseq_results()
+
+#############################################
+#       anglica root vs rhizosphere         #
+#############################################
+
+ang_root_rhizosphere <- phylo_rennes_deseq_ang_root_rhizosphere %>% results() %>% annotate_deseq_results()
+
+#############################################
+#       maritima root vs rhizosphere        #
+#############################################
+
+mar_root_rhizosphere <- phylo_rennes_deseq_mar_root_rhizosphere %>% results() %>% annotate_deseq_results()
+
+
+
+
+ang <- ang_root_rhizosphere$Family %>% table()
+mar <- mar_root_rhizosphere$Family %>% unique()
+alt <- alt_root_rhizosphere$Family %>% unique()
+
+"Sedimenticolaceae" %in% ang
+"Sedimenticolaceae" %in% alt
+"Sedimenticolaceae" %in% mar
+
+# alterniflora has sedimenticolaceae enriched in root relative to rhjizosphere in USA
+# it is also in Europe
+# and now we can confirm it is also in  maritima and anglica
+# next we can take the rtolando list of sulfur oxidisers and reducers and nitrifiers 
+# and ask how many of each is enriched in root relative to rhizosphere per species
+# and make a graph
+
+
+
+
+
+
+ang <- ang_root_rhizosphere$Genus %>% table() %>% data.frame() %>% set_colnames(c("Genus", "Freq"))
+mar <- mar_root_rhizosphere$Genus %>% table() %>% data.frame() %>% set_colnames(c("Genus", "Freq"))
+alt <- alt_root_rhizosphere$Genus %>% table() %>% data.frame() %>% set_colnames(c("Genus", "Freq"))
+
+
+
+
+ang %>% mutate(annot_func = case_when(Genus %in% sulfate_reducers ~ "sulfate_reducer",
+                                      Genus %in% sulfur_oxidisers ~ "sulfur_oxidisers",
+                                      Genus %in% iron_oxidisers ~ "iron_oxidisers",
+                                      Genus %in% nitrifiers ~ "nitrifiers"))
+
+
+nitrifiers
 
 # an example of a command to get a significantly lower abundance ASVs in anglica compared to maritima
 root_ang_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon)
