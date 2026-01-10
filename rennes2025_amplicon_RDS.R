@@ -151,9 +151,15 @@ run_deseq <- function(phylo_object, design_term){
   return(phylo_deseq)
 }
 
-annotate_deseq_results <- function(deseq_result){
-  annotated <- deseq_result %>% data.frame() %>% arrange(padj) %>% filter(padj < alpha) %>% rownames_to_column(var="amplicon") %>% left_join(tax_table(phylo_rennes) %>% data.frame() %>% rownames_to_column(var="amplicon"))
+annotate_deseq_results <- function(deseq_result, phylo_object){
+  annotated <- deseq_result %>% 
+    data.frame() %>% 
+    arrange(padj) %>% 
+    filter(padj < alpha) %>% 
+    rownames_to_column(var="amplicon") %>% 
+    left_join(tax_table(phylo_object) %>% data.frame() %>% rownames_to_column(var="amplicon"))
 }
+
 
 #https://github.com/joey711/phyloseq/issues/763 
 # make this into a funxction and do something like this for the oter species
@@ -195,9 +201,9 @@ resultsNames(phylo_rennes_deseq_root)
 
 contrast <- list("SpeciesSpartina.alternifllora", "SpeciesSpartina.anglica")
 
-root_alt_ang <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results()
-rhiz_alt_ang <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results()
-soil_alt_ang <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results()
+root_alt_ang <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results(phylo_rennes)
+rhiz_alt_ang <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results(phylo_rennes)
+soil_alt_ang <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results(phylo_rennes)
 
 
 ####################################
@@ -205,9 +211,9 @@ soil_alt_ang <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_re
 ####################################
 contrast <- list("SpeciesSpartina.alternifllora", "SpeciesSpartina.maritima")
 
-root_alt_mar <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results()
-rhiz_alt_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results()
-soil_alt_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results()
+root_alt_mar <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results(phylo_rennes)
+rhiz_alt_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results(phylo_rennes)
+soil_alt_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results(phylo_rennes)
 
 
 ####################################
@@ -215,39 +221,30 @@ soil_alt_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_re
 ####################################
 contrast <- list("SpeciesSpartina.anglica", "SpeciesSpartina.maritima")
 
-root_ang_mar <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results()
-rhiz_ang_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results()
-soil_ang_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results()
+root_ang_mar <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results(phylo_rennes)
+rhiz_ang_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results(phylo_rennes)
+soil_ang_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results(phylo_rennes)
 
 
 #############################################
 #      alterniflora root vs rhizosphere     #
 #############################################
 
-alt_root_rhizosphere <- phylo_rennes_deseq_alt_root_rhizosphere %>% results() %>% annotate_deseq_results()
+alt_root_rhizosphere <- phylo_rennes_deseq_alt_root_rhizosphere %>% results() %>% annotate_deseq_results(phylo_rennes)
 
 #############################################
 #       anglica root vs rhizosphere         #
 #############################################
 
-ang_root_rhizosphere <- phylo_rennes_deseq_ang_root_rhizosphere %>% results() %>% annotate_deseq_results()
+ang_root_rhizosphere <- phylo_rennes_deseq_ang_root_rhizosphere %>% results() %>% annotate_deseq_results(phylo_rennes)
 
 #############################################
 #       maritima root vs rhizosphere        #
 #############################################
 
-mar_root_rhizosphere <- phylo_rennes_deseq_mar_root_rhizosphere %>% results() %>% annotate_deseq_results()
+mar_root_rhizosphere <- phylo_rennes_deseq_mar_root_rhizosphere %>% results() %>% annotate_deseq_results(phylo_rennes)
 
 
-
-
-ang <- ang_root_rhizosphere$Family %>% table()
-mar <- mar_root_rhizosphere$Family %>% unique()
-alt <- alt_root_rhizosphere$Family %>% unique()
-
-"Sedimenticolaceae" %in% ang
-"Sedimenticolaceae" %in% alt
-"Sedimenticolaceae" %in% mar
 
 # alterniflora has sedimenticolaceae enriched in root relative to rhjizosphere in USA
 # it is also in Europe
@@ -256,25 +253,56 @@ alt <- alt_root_rhizosphere$Family %>% unique()
 # and ask how many of each is enriched in root relative to rhizosphere per species
 # and make a graph
 
+annotate_functional_genus <- function(results_table, species){
+  freq_table <- results_table$Genus %>% data.frame() %>% set_colnames(c("Genus"))
+  freq_table %<>% mutate(annot_func = case_when(Genus %in% sulfate_reducers ~ "sulfate reducers",
+                                                Genus %in% sulfur_oxidisers ~ "sulfur oxidisers",
+                                                Genus %in% iron_oxidisers ~ "iron oxidisers",
+                                                Genus %in% nitrifiers ~ "nitrifiers")) %>%
+    mutate(Species=species) %>%
+    drop_na()
+  return(freq_table)
+}
 
 
+ang_root_rhizosphere_functions <- ang_root_rhizosphere %>% annotate_functional_genus("Spartina anglica")
+mar_root_rhizosphere_functions <- mar_root_rhizosphere %>% annotate_functional_genus("Spartina maritima")
+alt_root_rhizosphere_functions <- alt_root_rhizosphere %>% annotate_functional_genus("Spartina alterniflora")
 
 
+alt_root_rhizosphere_functions %>% filter(annot_func == "sulfur oxidisers") %>% pull(Genus) %>% unique()
 
-ang <- ang_root_rhizosphere$Genus %>% table() %>% data.frame() %>% set_colnames(c("Genus", "Freq"))
-mar <- mar_root_rhizosphere$Genus %>% table() %>% data.frame() %>% set_colnames(c("Genus", "Freq"))
-alt <- alt_root_rhizosphere$Genus %>% table() %>% data.frame() %>% set_colnames(c("Genus", "Freq"))
+pdf("differentially_abundant_root_rhizosphere_ASV_perspecies.pdf", height=10, width=8)
+rbind(ang_root_rhizosphere_functions,
+      mar_root_rhizosphere_functions,
+      alt_root_rhizosphere_functions) %>%
+  ggplot(aes(x=annot_func, fill=Species)) + 
+  geom_histogram(stat="count") +
+  facet_wrap(~Species) +
+  xlab("Functional Grouping") +
+  ylab("Number differentially abundant ASVs") + 
+  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) + 
+  theme(strip.background = element_blank(),
+    strip.text.x = element_blank(),
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
+    axis.title = element_text(size=14),
+    axis.text = element_text(size=14),
+    legend.title = element_blank(),
+    legend.text = element_text(size=15))
+dev.off()
+
+###########################################################################
+#  plot differentially abundant Genus between root and soil per species.  #
+###########################################################################
+prune_taxa(alt_root_rhizosphere %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes) %>%
+  subset_samples(compartment %in% c("root", "soil") & Species == "Spartina alternifllora") %>%
+  tax_glom("Genus") %>%
+  plot_bar(fill="sample_Species") + facet_wrap(~compartment, scales="free_x", ncol=3)
 
 
-
-
-ang %>% mutate(annot_func = case_when(Genus %in% sulfate_reducers ~ "sulfate_reducer",
-                                      Genus %in% sulfur_oxidisers ~ "sulfur_oxidisers",
-                                      Genus %in% iron_oxidisers ~ "iron_oxidisers",
-                                      Genus %in% nitrifiers ~ "nitrifiers"))
-
-
-nitrifiers
+###########################################################################
+#  plot differentially abundant Genus between root and soil per species.  #
+###########################################################################
 
 # an example of a command to get a significantly lower abundance ASVs in anglica compared to maritima
 root_ang_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon)
@@ -355,8 +383,6 @@ present_in_all_soil <- get_present_in_all(phylo_rennes_prop_melt, "soil", 0.01)
 
 
 # boxplot
-
-
 min_abnundance0.1_families_root <- phylo_rennes_prop_melt %>% 
   filter(Family %in% present_in_all_root & compartment == "root" & Abundance > 0.01) %>%
   dplyr::select(Abundance, Family, sample_Species, Locality) %>%
@@ -474,6 +500,26 @@ subset_taxa(phylo_rennes_prop_family_abfilt, Family %in% rhiz_alt_ang$Family) %>
 
 
 
+
+#############################################
+#     USA rlando analysis comoarison
+#############################################
+
+
+
+
+
+phylo_rolando <- readRDS("/Users/katieemelianova/Desktop/Spartina/Spartina2025/JR_amplicons.rds")
+phylo_rolando <- tax_filter(
+  phylo_rolando,
+  min_prevalence = 10,
+  prev_detection_threshold = 5,
+  min_total_abundance = 5,
+  min_sample_abundance = 5)
+
+
+phylo_rolando_deseq <- phylo_rolando %>% run_deseq("compartment")
+test <- results(phylo_rolando_deseq) %>% annotate_deseq_results_jr(phylo_rolando)
 
 
 
