@@ -54,37 +54,43 @@ phylo_rennes@sam_data$compartment <- phylo_rennes@sam_data %>% data.frame() %>% 
   str_replace("root", "r") %>%
   str_replace("rhizome", "z") %>%
   str_replace("soil", "s") %>%
-  str_replace("r", "b_Root") %>%
-  str_replace("z", "a_Rhizome") %>%
-  str_replace("s", "c_Rhizosphere") %>% 
+  str_replace("r", "Root") %>%
+  str_replace("z", "Rhizome") %>%
+  str_replace("s", "Rhizosphere") %>% 
   replace_na('Unknown')
 
 # set locality and species as metadata slots
 phylo_rennes@sam_data$Locality <- phylo_rennes@sam_data %>% data.frame() %>% left_join(sample_info, by = c("User_sample_ID_number" = "Sample number")) %>% pull(Locality) %>% replace_na('Unknown')
 phylo_rennes@sam_data$Species <- phylo_rennes@sam_data %>% data.frame() %>% left_join(sample_info, by = c("User_sample_ID_number" = "Sample number")) %>% pull(Species) %>% replace_na('Unknown')
-
-
+phylo_rennes@sam_data$Species %<>% 
+  str_replace("Spartina alternifllora", "Sporobolus alterniflorus") %>%
+  str_replace("Spartina maritima", "Sporobolus maritimus") %>%
+  str_replace("Spartina anglica", "Sporobolus anglicus")
 
 ######################################
 #         plot ordination            # 
 ######################################
 
-# transform sample to relative abundance
+# transform sample to relative abundance and remove chloroplast and mitochonria and unknowns
+phylo_rennes <- subset_samples(phylo_rennes, compartment != "Unknown")
+phylo_rennes <- subset_samples(phylo_rennes, Species != "Unknown")
+phylo_rennes <- subset_taxa(phylo_rennes, !(Family %in% c("Mitochondria", "Chloroplast"))) %>% subset_taxa(!(Order %in% c("Mitochondria", "Chloroplast")))
 phylo_rennes_prop <- transform_sample_counts(phylo_rennes, function(otu) otu/sum(otu))
 ord.nmds.bray_jr <- ordinate(phylo_rennes_prop, method="NMDS", distance="bray")
 
 ## plot ordination plot
 #png("ordination_plot.png", height=700, width=800)
-plot_ordination(phylo_rennes_prop, ord.nmds.bray_jr, color="Species", title="Bray NMDS", shape="compartment") + 
-  geom_point(size = 7) +
-  theme(strip.text.x = element_text(size=25),
+ordination_plot <- plot_ordination(phylo_rennes_prop, ord.nmds.bray_jr, color="Species", title="Bray NMDS", shape="compartment") + 
+  geom_point(size = 8) +
+  theme(strip.text.x = element_text(size=30),
         axis.text.x = element_text(size=25),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size=25),
+        axis.text.y = element_text(size=25),
+        axis.title = element_text(size=30),
         legend.title = element_blank(),
-        legend.text = element_text(size=20),
+        legend.text = element_text(size=32),
         panel.background = element_blank()) +
-  ggtitle("")
+  ggtitle("") + 
+  scale_colour_manual(values=c("brown2", "palegreen3", "dodgerblue2"))
 #dev.off()
 
 
@@ -101,10 +107,6 @@ gm_mean = function(x, na.rm=TRUE){
   exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
 }
 
-
-
-
-  
 run_deseq <- function(phylo_object, design_term){
   formula_parsed<-paste("~", design_term)
   phylo_deseq <- phylo_object %>% phyloseq_to_deseq2(as.formula(formula_parsed))
@@ -123,39 +125,42 @@ annotate_deseq_results <- function(deseq_result, phylo_object){
     left_join(tax_table(phylo_object) %>% data.frame() %>% rownames_to_column(var="amplicon"))
 }
 
-
-
 # convert to deseq object specifying variable to test DE on per compartment
 # then run deseq, using geo means
 # reason for geo means function: https://github.com/joey711/phyloseq/issues/445
-phylo_rennes_deseq_root <- subset_samples(phylo_rennes, compartment == "b_Root") %>% run_deseq("0 + Species")
-phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "a_Rhizome") %>% run_deseq("0 + Species")
-phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "c_Rhizosphere") %>% run_deseq("0 + Species")
+phylo_rennes_deseq_root <- subset_samples(phylo_rennes, compartment == "Root") %>% run_deseq("0 + Species")
+phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "Rhizome") %>% run_deseq("0 + Species")
+phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "Rhizosphere") %>% run_deseq("0 + Species")
 
-phylo_rennes_deseq_alt_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina alternifllora" & compartment %in% c("b_Root", "c_Rhizosphere")) %>% run_deseq("0 + compartment")
-phylo_rennes_deseq_ang_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina anglica" & compartment %in% c("b_Root", "c_Rhizosphere")) %>% run_deseq("0 + compartment")
-phylo_rennes_deseq_mar_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina maritima" & compartment %in% c("b_Root", "c_Rhizosphere")) %>% run_deseq("0 + compartment")
-
-
+phylo_rennes_deseq_alt_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Sporobolus alterniflorus" & compartment %in% c("Root", "Rhizosphere")) %>% run_deseq("0 + compartment")
+phylo_rennes_deseq_ang_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Sporobolus anglicus" & compartment %in% c("Root", "Rhizosphere")) %>% run_deseq("0 + compartment")
+phylo_rennes_deseq_mar_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Sporobolus maritimus" & compartment %in% c("Root", "Rhizosphere")) %>% run_deseq("0 + compartment")
 
 
+
+# set pvalue threshold
 alpha = 0.01
+
+# this shows the comparisons which is handy when specifying them later - the format is always a bit funny
 resultsNames(phylo_rennes_deseq_root)
 
-# now we can get the per tissue results for contrasts between species
 
+
+resultsNames(phylo_rennes_deseq_ang_root_rhizosphere)
+
+
+# now we can get the per tissue results for contrasts between species
 
 ### TODO! might need to filter taxa by their abundance in N samples per group
 # like in RNAseq
 # whta I would do is get the OTU table and then just subset OTU by abundance in each species/Locality grouping, one by one
 # then I would get all these OTUs and subset the phyloseq object using those
 
-
 ####################################
 #      alterniflora vs anglica     #
 ####################################
 
-contrast <- list("SpeciesSpartina.alternifllora", "SpeciesSpartina.anglica")
+contrast <- list("SpeciesSporobolus.alterniflorus", "SpeciesSporobolus.anglicus")
 
 root_alt_ang <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results(phylo_rennes)
 rhiz_alt_ang <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results(phylo_rennes)
@@ -165,7 +170,7 @@ soil_alt_ang <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_re
 ####################################
 #      alterniflora vs maritima    #
 ####################################
-contrast <- list("SpeciesSpartina.alternifllora", "SpeciesSpartina.maritima")
+contrast <- list("SpeciesSporobolus.alterniflorus", "SpeciesSporobolus.maritimus")
 
 root_alt_mar <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results(phylo_rennes)
 rhiz_alt_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results(phylo_rennes)
@@ -175,7 +180,7 @@ soil_alt_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_re
 ####################################
 #      anglica vs maritima         #
 ####################################
-contrast <- list("SpeciesSpartina.anglica", "SpeciesSpartina.maritima")
+contrast <- list("SpeciesSporobolus.anglicus", "SpeciesSporobolus.maritimus")
 
 root_ang_mar <- results(phylo_rennes_deseq_root, contrast) %>% annotate_deseq_results(phylo_rennes)
 rhiz_ang_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq_results(phylo_rennes)
@@ -222,15 +227,15 @@ annotate_functional_genus <- function(results_table, species){
   return(freq_table)
 }
 
-# this bit I get each resuots table of DA amplicons and keep only those which 
-ang_root_rhizosphere_functions <- ang_root_rhizosphere %>% annotate_functional_genus("Spartina anglica")
-mar_root_rhizosphere_functions <- mar_root_rhizosphere %>% annotate_functional_genus("Spartina maritima")
-alt_root_rhizosphere_functions <- alt_root_rhizosphere %>% annotate_functional_genus("Spartina alterniflora")
+# this bit I get each resuots table of DA amplicons and keep only those which are annotated as one of the four functions (sox, sred, feox, nit)
+ang_root_rhizosphere_functions <- ang_root_rhizosphere %>% annotate_functional_genus("Sporobolus anglicus")
+mar_root_rhizosphere_functions <- mar_root_rhizosphere %>% annotate_functional_genus("Sporobolus maritimus")
+alt_root_rhizosphere_functions <- alt_root_rhizosphere %>% annotate_functional_genus("Sporobolus alterniflorus")
 
 
 
-pdf("differentially_abundant_root_rhizosphere_ASV_perspecies.pdf", height=10, width=8)
-rbind(ang_root_rhizosphere_functions,
+#pdf("differentially_abundant_root_rhizosphere_ASV_perspecies.pdf", height=10, width=8)
+functional_da_asv_plot <- rbind(ang_root_rhizosphere_functions,
       mar_root_rhizosphere_functions,
       alt_root_rhizosphere_functions) %>%
   ggplot(aes(x=annot_func, fill=Species)) + 
@@ -242,54 +247,57 @@ rbind(ang_root_rhizosphere_functions,
   theme(strip.background = element_blank(),
     strip.text.x = element_blank(),
     axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-    axis.title = element_text(size=14),
-    axis.text = element_text(size=14),
+    axis.title = element_text(size=30),
+    axis.text = element_text(size=25),
     legend.title = element_blank(),
-    legend.text = element_text(size=25))
-dev.off()
+    legend.text = element_text(size=31),
+    legend.key.size = unit(0.45,"cm"))
+#dev.off()
 
 ###########################################################################
 #  plot differentially abundant Genus between root and soil per species.  #
 ###########################################################################
 
-global_theme <- theme(strip.text.x = element_text(size = 25),
-                     axis.title = element_text(size=15),
+global_theme <- theme(strip.text.x = element_text(size = 30),
+                     axis.title = element_text(size=30),
                      axis.text.x = element_blank(),
                      axis.title.x = element_blank(),
                      axis.ticks.x = element_blank(),
                      axis.text.y = element_text(size=25),
-                     strip.text = element_text(size=25),
+                     strip.text = element_text(size=30),
                      legend.title = element_blank(),
-                     legend.text = element_text(size=18))
+                     legend.text = element_text(size=30),
+                     legend.justification = "left",
+                     legend.key.size = unit(0.85,"cm"))
 
 scale_colours <- scale_fill_manual(values = c("#D72000FF", "#FFAD0AFF", "#1BB6AFFF", "#9093A2FF", "#132157FF"), 
-                                   labels = c("Arcobacter", "Sedimenticola", "Sulfurimonas", "Sulfurovum", "Candidatus Thiodiazotropha", "Thiolapillus"))
+                                   labels = c("Arcobacter", "Sedimenticola", "Sulfurimonas", "Sulfurovum", "C. Thiodiazotropha", "Thiolapillus"))
 
 
 
-c_Rhizosphere
+# a quick note - the > or < sign matters here for which way the comparisonis shown (up in root vs rhizosphere or vice versa)
 
 # alterniflora
-alterniflora_root_associated <- prune_taxa(alt_root_rhizosphere %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes_prop) %>% # get the amplicons which are DA and prune to include only those
-  subset_samples(compartment %in% c("b_Root", "c_Rhizosphere") & Species == "Spartina alternifllora") %>% # then subset the object to include only sampes which are in root and rhizosphere
+alterniflora_root_associated <- prune_taxa(alt_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>% # get the amplicons which are DA and prune to include only those
+  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Spartina alternifllora") %>% # then subset the object to include only sampes which are in root and rhizosphere
   subset_taxa(Genus %in% (alt_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>% # then of those DA amplicons in root or rhizosphere samples, select only those where the Genus matches one in sulfur oxidiser list
   tax_glom("Genus") %>%
   plot_bar(fill="Genus") + 
   facet_wrap(~compartment, scales="free_x", ncol=3) +
   global_theme +
-  ylim(0, 0.3) +
+  ylim(0, 0.2) +
   scale_colours + 
   ylab("Sporobolus alterniflorus RA")
 
 # maritima
-maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes_prop) %>%
-  subset_samples(compartment %in% c("root", "soil") & Species == "Spartina maritima") %>%
+maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>%
+  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Spartina maritima") %>%
   subset_taxa(Genus %in% (mar_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>%
   tax_glom("Genus") %>%
   plot_bar(fill="Genus") + 
   facet_wrap(~compartment, scales="free_x", ncol=3) +
   global_theme +
-  ylim(0, 0.3) +
+  ylim(0, 0.2) +
   scale_colours + 
   theme(strip.text.x = element_blank() , 
         strip.background = element_blank()) + 
@@ -297,24 +305,33 @@ maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldC
 
 
 # anglica
-anglica_root_associated <- prune_taxa(ang_root_rhizosphere %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes_prop) %>%
-  subset_samples(compartment %in% c("root", "soil") & Species == "Spartina anglica") %>%
+anglica_root_associated <- prune_taxa(ang_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>%
+  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Spartina anglica") %>%
   subset_taxa(Genus %in% (ang_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>%
   tax_glom("Genus") %>%
   plot_bar(fill="Genus") + 
   facet_wrap(~compartment, scales="free_x", ncol=3) +
   global_theme +
-  ylim(0, 0.3) +
+  ylim(0, 0.2) +
   scale_colours + 
   theme(strip.text.x = element_blank() , 
         strip.background = element_blank(),
-          axis.title.x = element_text(size=25)) + 
+          axis.title.x = element_text(size=18)) + 
   ylab("Sporobolus anglicus RA") +
   xlab("Sample") 
 
-png("abundance_of_DA_ASVs_sulfur_oxidising.png", width=800, height=700)
-(alterniflora_root_associated / maritima_root_associated / anglica_root_associated) +  plot_layout(heights = c(1, 1, 1))
-dev.off()
+#png("abundance_of_DA_ASVs_sulfur_oxidising.png", width=800, height=700)
+rel_abundance_plot <- (alterniflora_root_associated / maritima_root_associated / anglica_root_associated) +  plot_layout(heights = c(1, 1, 1))
+#dev.off()
+
+
+
+
+
+png("fig1_panel.png", width=1900, height=1400)
+(rel_abundance_plot | (functional_da_asv_plot / ordination_plot)) +
+  plot_layout(widths = c(1.2, 1))
+dev.off() 
 
 
 
