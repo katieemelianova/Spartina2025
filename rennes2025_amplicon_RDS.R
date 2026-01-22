@@ -7,6 +7,8 @@ library(stringr)
 library(tidyverse)
 library(DESeq2)
 library(phyloseq)
+library(patchwork)
+
 
 ######################################################################
 #          functional annotation info for taxa from Rolando paper    #
@@ -52,37 +54,15 @@ phylo_rennes@sam_data$compartment <- phylo_rennes@sam_data %>% data.frame() %>% 
   str_replace("root", "r") %>%
   str_replace("rhizome", "z") %>%
   str_replace("soil", "s") %>%
-  str_replace("r", "root") %>%
-  str_replace("z", "rhizome") %>%
-  str_replace("s", "soil") %>% 
+  str_replace("r", "b_Root") %>%
+  str_replace("z", "a_Rhizome") %>%
+  str_replace("s", "c_Rhizosphere") %>% 
   replace_na('Unknown')
 
 # set locality and species as metadata slots
 phylo_rennes@sam_data$Locality <- phylo_rennes@sam_data %>% data.frame() %>% left_join(sample_info, by = c("User_sample_ID_number" = "Sample number")) %>% pull(Locality) %>% replace_na('Unknown')
 phylo_rennes@sam_data$Species <- phylo_rennes@sam_data %>% data.frame() %>% left_join(sample_info, by = c("User_sample_ID_number" = "Sample number")) %>% pull(Species) %>% replace_na('Unknown')
 
-# set one phyloseq object as chloroplast only to see if we can detect phylogenetic signal
-phylo_rennes_chloroplast <- subset_samples(phylo_rennes, Species != "Unknown")
-phylo_rennes_chloroplast <- subset_taxa(phylo_rennes_chloroplast, Order %in% c("Chloroplast"))
-
-# set another phyloseq object where we do not have chloroplast or mitochondria in for main analysis
-phylo_rennes <- subset_samples(phylo_rennes, Species != "Unknown")
-phylo_rennes <- subset_taxa(phylo_rennes, !(Family %in% c("Mitochondria", "Chloroplast"))) %>% subset_taxa(!(Order %in% c("Mitochondria", "Chloroplast")))
-
-
-######################################
-#          Plot richness             # 
-######################################
-
-plot_richness(phylo_rennes, x="compartment", measures=c("Shannon"), color="Species") +
-  geom_point(size = 3.5) +
-  theme(strip.text.x = element_text(size=25),
-        axis.text.x = element_text(size=25),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size=25),
-        legend.text = element_text(size=20),
-        axis.title.x = element_blank(),
-        legend.title = element_blank()) 
 
 
 ######################################
@@ -93,7 +73,8 @@ plot_richness(phylo_rennes, x="compartment", measures=c("Shannon"), color="Speci
 phylo_rennes_prop <- transform_sample_counts(phylo_rennes, function(otu) otu/sum(otu))
 ord.nmds.bray_jr <- ordinate(phylo_rennes_prop, method="NMDS", distance="bray")
 
-# plot ordination plot
+## plot ordination plot
+#png("ordination_plot.png", height=700, width=800)
 plot_ordination(phylo_rennes_prop, ord.nmds.bray_jr, color="Species", title="Bray NMDS", shape="compartment") + 
   geom_point(size = 7) +
   theme(strip.text.x = element_text(size=25),
@@ -104,25 +85,7 @@ plot_ordination(phylo_rennes_prop, ord.nmds.bray_jr, color="Species", title="Bra
         legend.text = element_text(size=20),
         panel.background = element_blank()) +
   ggtitle("")
-
-
-# now do a bray curtis plot but using onyly the chloroplast amplicons
-# the purpose of this is to confirm the maternal parent of spartina anglica as spartina alterniflora
-# also the plot can be used to confirm the expectation that no host dna is included in the 
-# rhizosphere/soil samples, as here do not cluster by phylogenetic expectations
-# the plot can be included as supplementary
-phylo_rennes_chloroplast_prop <- transform_sample_counts(phylo_rennes_chloroplast, function(otu) otu/sum(otu))
-ord.nmds.bray_chloroplast <- ordinate(phylo_rennes_chloroplast_prop, method="NMDS", distance="bray")
-
-plot_ordination(phylo_rennes_chloroplast_prop, ord.nmds.bray_chloroplast, color="Species", title="Bray NMDS", shape="compartment") + 
-  geom_point(size = 7) +
-  theme(strip.text.x = element_text(size=25),
-        axis.text.x = element_text(size=25),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size=25),
-        legend.title = element_text(size=20),
-        legend.text = element_text(size=20)) +
-  ggtitle("")
+#dev.off()
 
 
 
@@ -161,25 +124,18 @@ annotate_deseq_results <- function(deseq_result, phylo_object){
 }
 
 
-#https://github.com/joey711/phyloseq/issues/763 
-# make this into a funxction and do something like this for the oter species
-alt_root_sampleids <- subset_samples(phylo_rennes, compartment == "root" & Species == "Spartina alternifllora") %>% sample_data() %>% rownames()
-alt_root_samples <- phylo_rennes@otu_table[,alt_root_sampleids]
-to_keep_otus <- alt_root_samples[rowSums(alt_root_samples > 5) >= 3, ] %>% rownames()
-my_subset <- subset(otu_table(phylo_rennes), rownames(otu_table(phylo_rennes)) %in% to_keep_otus)
-new_physeq <- merge_phyloseq(my_subset, tax_table(phylo_rennes), sample_data(phylo_rennes))
-
 
 # convert to deseq object specifying variable to test DE on per compartment
 # then run deseq, using geo means
 # reason for geo means function: https://github.com/joey711/phyloseq/issues/445
-phylo_rennes_deseq_root <- subset_samples(phylo_rennes, compartment == "root") %>% run_deseq("0 + Species")
-phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "rhizome") %>% run_deseq("0 + Species")
-phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "soil") %>% run_deseq("0 + Species")
+phylo_rennes_deseq_root <- subset_samples(phylo_rennes, compartment == "b_Root") %>% run_deseq("0 + Species")
+phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "a_Rhizome") %>% run_deseq("0 + Species")
+phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "c_Rhizosphere") %>% run_deseq("0 + Species")
 
-phylo_rennes_deseq_alt_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina alternifllora" & compartment %in% c("root", "soil")) %>% run_deseq("0 + compartment")
-phylo_rennes_deseq_ang_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina anglica" & compartment %in% c("root", "soil")) %>% run_deseq("0 + compartment")
-phylo_rennes_deseq_mar_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina maritima" & compartment %in% c("root", "soil")) %>% run_deseq("0 + compartment")
+phylo_rennes_deseq_alt_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina alternifllora" & compartment %in% c("b_Root", "c_Rhizosphere")) %>% run_deseq("0 + compartment")
+phylo_rennes_deseq_ang_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina anglica" & compartment %in% c("b_Root", "c_Rhizosphere")) %>% run_deseq("0 + compartment")
+phylo_rennes_deseq_mar_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Spartina maritima" & compartment %in% c("b_Root", "c_Rhizosphere")) %>% run_deseq("0 + compartment")
+
 
 
 
@@ -226,6 +182,8 @@ rhiz_ang_mar <- results(phylo_rennes_deseq_rhizome, contrast) %>% annotate_deseq
 soil_ang_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_results(phylo_rennes)
 
 
+
+
 #############################################
 #      alterniflora root vs rhizosphere     #
 #############################################
@@ -264,13 +222,12 @@ annotate_functional_genus <- function(results_table, species){
   return(freq_table)
 }
 
-
+# this bit I get each resuots table of DA amplicons and keep only those which 
 ang_root_rhizosphere_functions <- ang_root_rhizosphere %>% annotate_functional_genus("Spartina anglica")
 mar_root_rhizosphere_functions <- mar_root_rhizosphere %>% annotate_functional_genus("Spartina maritima")
 alt_root_rhizosphere_functions <- alt_root_rhizosphere %>% annotate_functional_genus("Spartina alterniflora")
 
 
-alt_root_rhizosphere_functions %>% filter(annot_func == "sulfur oxidisers") %>% pull(Genus) %>% unique()
 
 pdf("differentially_abundant_root_rhizosphere_ASV_perspecies.pdf", height=10, width=8)
 rbind(ang_root_rhizosphere_functions,
@@ -288,16 +245,79 @@ rbind(ang_root_rhizosphere_functions,
     axis.title = element_text(size=14),
     axis.text = element_text(size=14),
     legend.title = element_blank(),
-    legend.text = element_text(size=15))
+    legend.text = element_text(size=25))
 dev.off()
 
 ###########################################################################
 #  plot differentially abundant Genus between root and soil per species.  #
 ###########################################################################
-prune_taxa(alt_root_rhizosphere %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes) %>%
-  subset_samples(compartment %in% c("root", "soil") & Species == "Spartina alternifllora") %>%
+
+global_theme <- theme(strip.text.x = element_text(size = 25),
+                     axis.title = element_text(size=15),
+                     axis.text.x = element_blank(),
+                     axis.title.x = element_blank(),
+                     axis.ticks.x = element_blank(),
+                     axis.text.y = element_text(size=25),
+                     strip.text = element_text(size=25),
+                     legend.title = element_blank(),
+                     legend.text = element_text(size=18))
+
+scale_colours <- scale_fill_manual(values = c("#D72000FF", "#FFAD0AFF", "#1BB6AFFF", "#9093A2FF", "#132157FF"), 
+                                   labels = c("Arcobacter", "Sedimenticola", "Sulfurimonas", "Sulfurovum", "Candidatus Thiodiazotropha", "Thiolapillus"))
+
+
+
+c_Rhizosphere
+
+# alterniflora
+alterniflora_root_associated <- prune_taxa(alt_root_rhizosphere %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes_prop) %>% # get the amplicons which are DA and prune to include only those
+  subset_samples(compartment %in% c("b_Root", "c_Rhizosphere") & Species == "Spartina alternifllora") %>% # then subset the object to include only sampes which are in root and rhizosphere
+  subset_taxa(Genus %in% (alt_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>% # then of those DA amplicons in root or rhizosphere samples, select only those where the Genus matches one in sulfur oxidiser list
   tax_glom("Genus") %>%
-  plot_bar(fill="sample_Species") + facet_wrap(~compartment, scales="free_x", ncol=3)
+  plot_bar(fill="Genus") + 
+  facet_wrap(~compartment, scales="free_x", ncol=3) +
+  global_theme +
+  ylim(0, 0.3) +
+  scale_colours + 
+  ylab("Sporobolus alterniflorus RA")
+
+# maritima
+maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes_prop) %>%
+  subset_samples(compartment %in% c("root", "soil") & Species == "Spartina maritima") %>%
+  subset_taxa(Genus %in% (mar_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>%
+  tax_glom("Genus") %>%
+  plot_bar(fill="Genus") + 
+  facet_wrap(~compartment, scales="free_x", ncol=3) +
+  global_theme +
+  ylim(0, 0.3) +
+  scale_colours + 
+  theme(strip.text.x = element_blank() , 
+        strip.background = element_blank()) + 
+  ylab("Sporobolus maritimus RA")
+
+
+# anglica
+anglica_root_associated <- prune_taxa(ang_root_rhizosphere %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo_rennes_prop) %>%
+  subset_samples(compartment %in% c("root", "soil") & Species == "Spartina anglica") %>%
+  subset_taxa(Genus %in% (ang_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>%
+  tax_glom("Genus") %>%
+  plot_bar(fill="Genus") + 
+  facet_wrap(~compartment, scales="free_x", ncol=3) +
+  global_theme +
+  ylim(0, 0.3) +
+  scale_colours + 
+  theme(strip.text.x = element_blank() , 
+        strip.background = element_blank(),
+          axis.title.x = element_text(size=25)) + 
+  ylab("Sporobolus anglicus RA") +
+  xlab("Sample") 
+
+png("abundance_of_DA_ASVs_sulfur_oxidising.png", width=800, height=700)
+(alterniflora_root_associated / maritima_root_associated / anglica_root_associated) +  plot_layout(heights = c(1, 1, 1))
+dev.off()
+
+
+
 
 
 ###########################################################################
@@ -322,7 +342,8 @@ prune_taxa(soil_alt_mar %>% filter(log2FoldChange < 0) %>% pull(amplicon), phylo
 # 1. how many ASVs are differentially abundant between each species pair?
 # Answer = anglica and maritima have far fewer differentially abundant taxa than the other two comparisons
 
-pdf("differentially_abundant_ASV.pdf", height=7, width=12)
+#pdf("differentially_abundant_ASV.pdf", height=7, width=12)
+png("differentially_abundant_ASV.png", height=500, width=700)
 data.frame(number_genus_diff_abundant = c(root_ang_mar$Family %>% length(), soil_ang_mar$Family %>% length(), rhiz_ang_mar$Family %>% length(),
                                           root_alt_mar$Family %>% length(), soil_alt_mar$Family %>% length(), rhiz_alt_mar$Family %>% length(),
                                           root_alt_ang$Family %>% length(), soil_alt_ang$Family %>% length(), rhiz_alt_ang$Family %>% length()),
@@ -434,6 +455,7 @@ min_abnundance0.1_families_rhizosphere <- phylo_rennes_prop_melt %>%
   ylab("Log(Rhizosphere Abundance)")
 
 pdf("min_abnundance0.1_families_compartments.pdf", height=11, width=12)
+png("min_abnundance0.1_families_compartments.png", height=100, width=100)
 (min_abnundance0.1_families_root / min_abnundance0.1_families_rhizome / min_abnundance0.1_families_rhizosphere) +  plot_layout(heights = c(2, 2, 1))
 dev.off()
 
@@ -506,9 +528,6 @@ subset_taxa(phylo_rennes_prop_family_abfilt, Family %in% rhiz_alt_ang$Family) %>
 #############################################
 
 
-
-
-
 phylo_rolando <- readRDS("/Users/katieemelianova/Desktop/Spartina/Spartina2025/JR_amplicons.rds")
 phylo_rolando <- tax_filter(
   phylo_rolando,
@@ -524,7 +543,58 @@ test <- results(phylo_rolando_deseq) %>% annotate_deseq_results_jr(phylo_rolando
 
 
 
+######################################
+#          Plot richness             # 
+######################################
 
+plot_richness(phylo_rennes, x="compartment", measures=c("Shannon"), color="Species") +
+  geom_point(size = 3.5) +
+  theme(strip.text.x = element_text(size=25),
+        axis.text.x = element_text(size=25),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size=25),
+        legend.text = element_text(size=20),
+        axis.title.x = element_blank(),
+        legend.title = element_blank()) 
+
+
+
+
+# set one phyloseq object as chloroplast only to see if we can detect phylogenetic signal
+phylo_rennes_chloroplast <- subset_samples(phylo_rennes, Species != "Unknown")
+phylo_rennes_chloroplast <- subset_taxa(phylo_rennes_chloroplast, Order %in% c("Chloroplast"))
+
+# set another phyloseq object where we do not have chloroplast or mitochondria in for main analysis
+phylo_rennes <- subset_samples(phylo_rennes, Species != "Unknown")
+phylo_rennes <- subset_taxa(phylo_rennes, !(Family %in% c("Mitochondria", "Chloroplast"))) %>% subset_taxa(!(Order %in% c("Mitochondria", "Chloroplast")))
+# now do a bray curtis plot but using onyly the chloroplast amplicons
+# the purpose of this is to confirm the maternal parent of spartina anglica as spartina alterniflora
+# also the plot can be used to confirm the expectation that no host dna is included in the 
+# rhizosphere/soil samples, as here do not cluster by phylogenetic expectations
+# the plot can be included as supplementary
+phylo_rennes_chloroplast_prop <- transform_sample_counts(phylo_rennes_chloroplast, function(otu) otu/sum(otu))
+ord.nmds.bray_chloroplast <- ordinate(phylo_rennes_chloroplast_prop, method="NMDS", distance="bray")
+
+plot_ordination(phylo_rennes_chloroplast_prop, ord.nmds.bray_chloroplast, color="Species", title="Bray NMDS", shape="compartment") + 
+  geom_point(size = 7) +
+  theme(strip.text.x = element_text(size=25),
+        axis.text.x = element_text(size=25),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size=25),
+        legend.title = element_text(size=20),
+        legend.text = element_text(size=20)) +
+  ggtitle("")
+
+
+
+
+#https://github.com/joey711/phyloseq/issues/763 
+# make this into a funxction and do something like this for the oter species
+alt_root_sampleids <- subset_samples(phylo_rennes, compartment == "root" & Species == "Spartina alternifllora") %>% sample_data() %>% rownames()
+alt_root_samples <- phylo_rennes@otu_table[,alt_root_sampleids]
+to_keep_otus <- alt_root_samples[rowSums(alt_root_samples > 5) >= 3, ] %>% rownames()
+my_subset <- subset(otu_table(phylo_rennes), rownames(otu_table(phylo_rennes)) %in% to_keep_otus)
+new_physeq <- merge_phyloseq(my_subset, tax_table(phylo_rennes), sample_data(phylo_rennes))
 
 
 
