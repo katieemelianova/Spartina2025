@@ -144,8 +144,36 @@ phylo_rolando <- tax_filter(
   min_sample_abundance = 5)
 
 
-phylo_rolando@sam_data$study <- "usa"
-phylo_rennes@sam_data$study <- "eur"
+phylo_rolando_deseq <- phylo_rolando %>% run_deseq("compartment")
+test <- results(phylo_rolando_deseq) %>% annotate_deseq_results_jr(phylo_rolando)
+
+
+
+phylo_rolando_melt <- phylo_rolando %>% psmelt() %>% dplyr::select(OTU, Sample, Abundance, HOST, compartment, Domain, Phylum, Class, Order, Family, Genus) %>% mutate(study = "usa") %>% rename("HOST" = "Species")
+phylo_rennes_melt <- phylo_rennes %>% psmelt() %>% dplyr::select(OTU, Sample, Abundance, Species, compartment,Domain, Phylum, Class, Order, Family, Genus) %>% mutate(study = "euro") 
+
+phylo_rolando_melt %>% filter(Genus == "Sedimenticola") %>% nrow()
+phylo_rennes_melt %>% filter(Genus == "Sedimenticola") %>% nrow()
+
+phylo_rolando_melt %>% filter(Genus == "Candidatus Thiodiazotropha") %>% nrow()
+phylo_rennes_melt %>% filter(Genus == "Candidatus Thiodiazotropha") %>% nrow()
+
+
+
+
+rbind(phylo_rolando_melt, phylo_rennes_melt) %>% 
+  group_by(study, Genus) %>%
+  summarise(test=n()) %>%
+  filter(Genus == "Sedimenticola")
+  
+rbind(phylo_rolando_melt, phylo_rennes_melt) %>% 
+  group_by(study, Genus) %>%
+  summarise(test=n()) %>%
+  filter(Genus == "Candidatus Thiodiazotropha")
+
+
+# this above bit seems to work and doesnt give me the weird numbersd repeated I saw in the code below. Ignore below and use the rbinded dataframes above
+
 
 phylo_rennes_prop <- transform_sample_counts(phylo_rennes, function(otu) otu/sum(otu))
 phylo_rolando_prop <- transform_sample_counts(phylo_rolando, function(otu) otu/sum(otu))
@@ -188,12 +216,6 @@ phylo_both_melted %>%#
   group_by(study) %>%
   summarise(nFeatures = n()) 
   
-phylo_both_melted %>% filter(study == "eur" & Genus == "Candidatus Thiodiazotropha") %>% nrow()
-phylo_both_melted %>% filter(study == "usa" & Genus == "Candidatus Thiodiazotropha") %>% nrow()
-
-phylo_both_melted %>% filter(study == "eur" & Genus == "Sedimenticola") %>% nrow()
-phylo_both_melted %>% filter(study == "usa" & Genus == "Sedimenticola") %>% nrow()
-
 
 
 phylo_both_melted %>% filter(Genus == "Candidatus Thiodiazotropha" & study == "eur")

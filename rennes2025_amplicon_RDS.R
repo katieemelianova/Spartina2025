@@ -234,7 +234,7 @@ alt_root_rhizosphere_functions <- alt_root_rhizosphere %>% annotate_functional_g
 
 
 
-#pdf("differentially_abundant_root_rhizosphere_ASV_perspecies.pdf", height=10, width=8)
+pdf("differentially_abundant_root_rhizosphere_ASV_perspecies.pdf", height=14, width=14)
 functional_da_asv_plot <- rbind(ang_root_rhizosphere_functions,
       mar_root_rhizosphere_functions,
       alt_root_rhizosphere_functions) %>%
@@ -242,7 +242,7 @@ functional_da_asv_plot <- rbind(ang_root_rhizosphere_functions,
   geom_histogram(stat="count") +
   facet_wrap(~Species) +
   xlab("Functional Grouping") +
-  ylab("Number differentially abundant ASVs") + 
+  ylab("Number of root associated ASVs") + 
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) + 
   theme(strip.background = element_blank(),
     strip.text.x = element_blank(),
@@ -252,7 +252,8 @@ functional_da_asv_plot <- rbind(ang_root_rhizosphere_functions,
     legend.title = element_blank(),
     legend.text = element_text(size=31),
     legend.key.size = unit(0.45,"cm"))
-#dev.off()
+functional_da_asv_plot
+dev.off()
 
 ###########################################################################
 #  plot differentially abundant Genus between root and soil per species.  #
@@ -324,9 +325,9 @@ anglica_root_associated <- prune_taxa(ang_root_rhizosphere %>% filter(log2FoldCh
 rel_abundance_plot <- (alterniflora_root_associated / maritima_root_associated / anglica_root_associated) +  plot_layout(heights = c(1, 1, 1))
 #dev.off()
 
-
-
-
+png("ordination_plot.png", width=1100, height=700)
+ordination_plot
+dev.off()
 
 png("fig1_panel.png", width=1900, height=1400)
 (rel_abundance_plot | (functional_da_asv_plot / ordination_plot)) +

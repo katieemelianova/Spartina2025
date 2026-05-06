@@ -7,6 +7,9 @@ library(ggplot2)
 library(car)
 library(lme4)
 library(lsmeans)
+library(ggsignif)
+library(patchwork)
+
 
 read_delim("/Users/katieemelianova/Desktop/Spartina/Spartina2025/spartina_photosynq_results.txt") %>% colnames()
 
@@ -120,7 +123,13 @@ phi2_boxplot <- mean_psynq %>%
         axis.title = element_text(size=30),
         axis.text = element_text(size=25),
         legend.position="none",
-        axis.title.x = element_blank())
+        axis.title.x = element_blank(),
+        panel.background = element_blank(),
+        plot.margin = margin(1,1,1.5,1.2, "cm")) +
+  geom_signif(
+    test = "t.test",
+    comparisons = list(c("S. anglicus", "S. alterniflorus"), c("S. alterniflorus", "S. maritimus"), c("S. anglicus", "S. maritimus")),
+    map_signif_level = TRUE, textsize = 5) 
 #dev.off()
 
 ##########################
@@ -170,7 +179,13 @@ lef_boxplot <- mean_psynq %>%
         axis.title = element_text(size=30),
         axis.text = element_text(size=25),
         legend.position="none",
-        axis.title.x = element_blank())
+        axis.title.x = element_blank(),
+        panel.background = element_blank(),
+        plot.margin = margin(1,1,1.5,1.2, "cm")) +
+  geom_signif(
+    test = "t.test",
+    comparisons = list(c("S. anglicus", "S. alterniflorus"), c("S. alterniflorus", "S. maritimus"), c("S. anglicus", "S. maritimus")),
+    map_signif_level = TRUE, textsize = 5) 
 
 
 #png("lef_ph2_boxplot.png", height=1000, width=800)
