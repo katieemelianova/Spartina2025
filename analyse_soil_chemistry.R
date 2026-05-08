@@ -88,7 +88,7 @@ ph_plot <- soil %>%
 #######################################
 
 
-png("soil_chemistry_composite.png", width=1450, height=1700)
+png("Figure2_soil_chemistry_composite.png", width=1300, height=1400)
 # ((nitrogen_plot | carbon_plot) / (cnratio_plot | ph_plot))  | plot_spacer() + (lef_boxplot + phi2_boxplot) +
 #  plot_layout(widths = c(1, 5))
 chemistry <- (nitrogen_plot | carbon_plot | ph_plot)
@@ -155,11 +155,12 @@ greenhouse_ordination <- plot_ordination(phylo_greenhouse_prop, ord.nmds.bray_el
         axis.text.x = element_text(size=30),
         axis.text.y = element_text(size=25),
         axis.title = element_text(size=30),
-        legend.text = element_text(size=30),
+        legend.text = element_text(size=25),
         legend.title = element_blank(),
         plot.margin = margin(1,5,1,5, "cm"),
-        legend.position = c(0.8, 0.2),
+        legend.position = c(0.99, 0.2),
         legend.background = element_rect(fill='transparent'),
+        legend.box.background = element_rect(colour = "black"),
         panel.background = element_blank()) +
   ggtitle("") +
   scale_colour_manual(values = c("grey60", "brown2", "palegreen3", "dodgerblue2"))

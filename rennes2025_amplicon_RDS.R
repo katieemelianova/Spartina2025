@@ -280,7 +280,7 @@ scale_colours <- scale_fill_manual(values = c("#D72000FF", "#FFAD0AFF", "#1BB6AF
 
 # alterniflora
 alterniflora_root_associated <- prune_taxa(alt_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>% # get the amplicons which are DA and prune to include only those
-  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Spartina alternifllora") %>% # then subset the object to include only sampes which are in root and rhizosphere
+  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Sporobolus alterniflorus") %>% # then subset the object to include only sampes which are in root and rhizosphere
   subset_taxa(Genus %in% (alt_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>% # then of those DA amplicons in root or rhizosphere samples, select only those where the Genus matches one in sulfur oxidiser list
   tax_glom("Genus") %>%
   plot_bar(fill="Genus") + 
@@ -292,7 +292,7 @@ alterniflora_root_associated <- prune_taxa(alt_root_rhizosphere %>% filter(log2F
 
 # maritima
 maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>%
-  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Spartina maritima") %>%
+  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Sporobolus maritimus") %>%
   subset_taxa(Genus %in% (mar_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>%
   tax_glom("Genus") %>%
   plot_bar(fill="Genus") + 
@@ -307,7 +307,7 @@ maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldC
 
 # anglica
 anglica_root_associated <- prune_taxa(ang_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>%
-  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Spartina anglica") %>%
+  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Sporobolus anglicus") %>%
   subset_taxa(Genus %in% (ang_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>%
   tax_glom("Genus") %>%
   plot_bar(fill="Genus") + 
@@ -317,7 +317,7 @@ anglica_root_associated <- prune_taxa(ang_root_rhizosphere %>% filter(log2FoldCh
   scale_colours + 
   theme(strip.text.x = element_blank() , 
         strip.background = element_blank(),
-          axis.title.x = element_text(size=18)) + 
+          axis.title.x = element_text(size=30)) + 
   ylab("Sporobolus anglicus RA") +
   xlab("Sample") 
 
@@ -329,9 +329,10 @@ png("ordination_plot.png", width=1100, height=700)
 ordination_plot
 dev.off()
 
-png("fig1_panel.png", width=1900, height=1400)
+png("Figure1_panel.png", width=1900, height=1400)
 (rel_abundance_plot | (functional_da_asv_plot / ordination_plot)) +
-  plot_layout(widths = c(1.2, 1))
+  plot_layout(widths = c(1.2, 1)) + plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 35))
 dev.off() 
 
 
@@ -576,7 +577,9 @@ plot_richness(phylo_rennes, x="compartment", measures=c("Shannon"), color="Speci
         legend.title = element_blank()) 
 
 
-
+###############################################
+#         Chloroplast Only Ordination         #
+###############################################
 
 # set one phyloseq object as chloroplast only to see if we can detect phylogenetic signal
 phylo_rennes_chloroplast <- subset_samples(phylo_rennes, Species != "Unknown")
@@ -593,6 +596,7 @@ phylo_rennes <- subset_taxa(phylo_rennes, !(Family %in% c("Mitochondria", "Chlor
 phylo_rennes_chloroplast_prop <- transform_sample_counts(phylo_rennes_chloroplast, function(otu) otu/sum(otu))
 ord.nmds.bray_chloroplast <- ordinate(phylo_rennes_chloroplast_prop, method="NMDS", distance="bray")
 
+png("Figure_S1_chloroplast_ordination.png", height=800, width=1000)
 plot_ordination(phylo_rennes_chloroplast_prop, ord.nmds.bray_chloroplast, color="Species", title="Bray NMDS", shape="compartment") + 
   geom_point(size = 7) +
   theme(strip.text.x = element_text(size=25),
@@ -602,7 +606,7 @@ plot_ordination(phylo_rennes_chloroplast_prop, ord.nmds.bray_chloroplast, color=
         legend.title = element_text(size=20),
         legend.text = element_text(size=20)) +
   ggtitle("")
-
+dev.off()
 
 
 
