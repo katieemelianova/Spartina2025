@@ -188,6 +188,6 @@ lef_boxplot <- mean_psynq %>%
     map_signif_level = TRUE, textsize = 5) 
 
 
-#png("lef_ph2_boxplot.png", height=1000, width=800)
+png("FigureS3_lef_ph2_boxplot.png", height=1000, width=800)
 (lef_boxplot + phi2_boxplot)
-#dev.off()
+dev.off()

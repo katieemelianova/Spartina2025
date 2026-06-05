@@ -83,6 +83,8 @@ ph_plot <- soil %>%
 
 
 
+
+
 #######################################
 #              composite              #
 #######################################
@@ -99,6 +101,40 @@ chemistry <- (nitrogen_plot | carbon_plot | ph_plot)
   plot_annotation(tag_levels = 'A') & 
   theme(plot.tag = element_text(size = 35))
 dev.off()
+
+
+############################################
+#     composite with greenhouse photo      #  
+############################################
+
+greenhouse2_cropped <- readPNG("greenhouse2_cropped.png")
+test1 <- ggplot() + 
+  theme(panel.background = element_blank(),
+        plot.margin = margin(0,0,0,0, "cm")) + 
+  cowplot::draw_image("greenhouse2.png")
+
+test2 <- ggplot() + 
+  theme(panel.background = element_blank(),
+        plot.margin = margin(0,0,0,0, "cm")) + 
+  cowplot::draw_image("Maritima_LocoalMendon.png")
+  
+  
+
+
+
+png("Figure2_soil_chemistry_composite_greenhouse_pic.png", width=1600, height=1400)
+# ((nitrogen_plot | carbon_plot) / (cnratio_plot | ph_plot))  | plot_spacer() + (lef_boxplot + phi2_boxplot) +
+#  plot_layout(widths = c(1, 5))
+chemistry <- (nitrogen_plot | carbon_plot | ph_plot)
+#photo_micro <- ((lef_boxplot / phi2_boxplot) | greenhouse_ordination) + plot_layout(widths = c(1, 2.5))
+#(chemistry / plot_spacer() / greenhouse_ordination) + plot_layout(heights = c(1, 0.3, 2))
+(chemistry / (test1 | test2)) + 
+  plot_layout(heights = c(1, 1)) + 
+  plot_annotation(tag_levels = 'A') & 
+  theme(plot.tag = element_text(size = 35))
+dev.off()
+
+
 
 #######################################
 #          chemistry only             #
@@ -124,6 +160,9 @@ phylo_greenhouse <- readRDS("/Users/katieemelianova/Desktop/Spartina/JMF_results
              min_sample_abundance = 5) %>%
   subset_taxa(!(Family %in% c("Mitochondria", "Chloroplast"))) %>% subset_taxa(!(Order %in% c("Mitochondria", "Chloroplast")))
 
+
+
+
 phylo_greenhouse@sam_data$compartment <- ifelse(endsWith(phylo_greenhouse@sam_data$Sample_description, "R"), "Rhizosphere", "Bulk Soil")
 phylo_greenhouse@sam_data$user_sample_id <- substr(phylo_greenhouse@sam_data$Sample_description, 1,4)
 
@@ -133,6 +172,12 @@ sample_mapping <- readxl::read_xlsx("/Users/katieemelianova/Desktop/Spartina/Spa
   dplyr::select("Sample number", "Species", "Locality") %>%
   set_colnames(c("user_sample_id", "Species", "Locality"))
 sample_mapping$user_sample_id %<>% as.integer() %>% as.character()
+
+
+#sample_mapping <- read_tsv("/Users/katieemelianova/Desktop/Spartina/Spartina2025/Rennes_Sampling.tsv")
+
+#rownames(sample_mapping) <- sample_mapping$`Sample number`
+
 
 
 phylo_greenhouse@sam_data$Species <- left_join(data.frame(phylo_greenhouse@sam_data), sample_mapping, by = "user_sample_id") %>% pull(Species)
@@ -179,9 +224,18 @@ greenhouse_richness <- plot_richness(phylo_greenhouse_prop, x="compartment", mea
   scale_colour_manual(values = c("grey71", "brown2", "palegreen3", "dodgerblue2"))
 
 
-png("greenhouse_results.png", width=800, height=600)
+
+#################################
+#        greenhouse PCA         #
+#################################
+
+
+png("FigureS4_greenhouse_PCA.png", width=1000, height=800)
 greenhouse_ordination
 dev.off()
+
+
+
 
 
 
