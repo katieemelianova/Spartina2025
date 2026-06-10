@@ -6,6 +6,7 @@ library(stringr)
 library(tidyverse)
 library(ggplot2)
 library(janitor)
+library(patchwork)
 
 sample_mapping <- read_delim("~/Desktop/Spartina/Spartina2025/Rennes_Sampling.tsv") %>% 
   dplyr::select(`Sample number`, "Species") %>%
@@ -44,8 +45,8 @@ results <- inner_join(concentrations, sample_mapping, by="User sample ID") %>%
 dilution_factor <- 100000
 results %<>% mutate(copies_per_ul_converted=(copies_per_ul * (12/2) * dilution_factor)/`Biomass in g`)
 
-png("FigureS2_16S_copies_barplot.png", height=500, width=500)
-ggplot(results, aes(x=species, y=(copies_per_ul_converted), fill=species)) + 
+#png("FigureS2_16S_copies_barplot.png", height=500, width=500)
+dpcr_result <- ggplot(results, aes(x=species, y=(copies_per_ul_converted), fill=species)) + 
   geom_boxplot() +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
   theme(axis.title = element_text(size=20),
@@ -57,7 +58,7 @@ ggplot(results, aes(x=species, y=(copies_per_ul_converted), fill=species)) +
         legend.title = element_blank(),
         legend.text = element_text(size=15)) +
   ylab("16S Copies per Microlitre")
-dev.off()
+#dev.off()
 
 
 
@@ -111,26 +112,9 @@ phylo_rennes_prop_plastid <- transform_sample_counts(phylo_rennes_plastid, funct
 phylo_rennes_prop_bacteria <- transform_sample_counts(phylo_rennes_bacteria, function(otu) otu/sum(otu))
 
 
-png("spartina_absolute_plastid_abundance.png", height=500, width=500)
-phylo_rennes_prop_plastid %>% ps_melt() %>% 
-  dplyr::select(OTU, Abundance, User_sample_ID_number, sample_Species) %>%
-  rename("User_sample_ID_number" = "User sample ID") %>%
-  left_join(results, by = "User sample ID", relationship = "many-to-many") %>%
-  mutate(absolute_abundance = Abundance * copies_per_ul_converted) %>%
-  drop_na() %>%
-  ggplot(aes(x=sample_Species, y=log(absolute_abundance))) + 
-  geom_boxplot(aes(fill = sample_Species)) +
-  ylab("Absolute Abundance Plastid") +
-  theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=0.5),
-        axis.text = element_text(size=15),
-        axis.title.y = element_text(size = 15),
-        legend.title=element_blank()) +
-  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2"))
-dev.off()
 
-png("spartina_absolute_bacteria_abundance.png", height=500, width=500)
-phylo_rennes_prop_bacteria %>% ps_melt() %>% 
+#png("spartina_absolute_bacteria_abundance.png", height=500, width=500)
+bacteria_absolute_abundance <- phylo_rennes_prop_bacteria %>% ps_melt() %>% 
   dplyr::select(OTU, Abundance, User_sample_ID_number, sample_Species) %>%
   rename("User_sample_ID_number" = "User sample ID") %>%
   left_join(results, by = "User sample ID", relationship = "many-to-many") %>%
@@ -140,12 +124,32 @@ phylo_rennes_prop_bacteria %>% ps_melt() %>%
   geom_boxplot(aes(fill = sample_Species)) +
   ylab("Absolute Abundance Bacteria") +
   theme(axis.title.x = element_blank(),
-        axis.text.x = element_text(angle = 30, vjust = 0.5, hjust=0.5),
-        axis.text = element_text(size=15),
-        axis.title.y = element_text(size = 15),
+        axis.text.x = element_blank(),
+        axis.text = element_text(size=20),
+        axis.title.y = element_text(size = 20),
+        legend.text = element_text(size=20),
         legend.title=element_blank()) +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) 
-dev.off()
+#dev.off()
+
+#png("spartina_absolute_plastid_abundance.png", height=500, width=500)
+plastid_absolute_abundance <- phylo_rennes_prop_plastid %>% ps_melt() %>% 
+  dplyr::select(OTU, Abundance, User_sample_ID_number, sample_Species) %>%
+  rename("User_sample_ID_number" = "User sample ID") %>%
+  left_join(results, by = "User sample ID", relationship = "many-to-many") %>%
+  mutate(absolute_abundance = Abundance * copies_per_ul_converted) %>%
+  drop_na() %>%
+  ggplot(aes(x=sample_Species, y=log(absolute_abundance))) + 
+  geom_boxplot(aes(fill = sample_Species)) +
+  ylab("Absolute Abundance Plastid") +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text = element_text(size=20),
+        axis.title.y = element_text(size = 20),
+        legend.title=element_blank(),
+        legend.text = element_text(size=15)) +
+  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2"))
+#dev.off()
 
 
 
@@ -153,7 +157,9 @@ dev.off()
 
 
 
-
+((dpcr_result + theme(legend.position="none")) + 
+    (bacteria_absolute_abundance + theme(legend.position="none")) + 
+    plastid_absolute_abundance)
 
 
 
