@@ -9,6 +9,10 @@ library(phyloseq)
 library(ggsignif)
 library(microViz)
 library(DESeq2)
+library(png)
+library(tidyverse)
+library(glue)
+library(ggtext)
 
 
 soil <- readxl::read_xlsx("/Users/katieemelianova/Desktop/Spartina/Spartina2025/spartina_soil_chemistry_results.xlsx")
@@ -18,10 +22,10 @@ soil <- read_delim("/Users/katieemelianova/Desktop/Spartina/Spartina2025/spartin
   mutate(species=case_when(species == "anglica" ~"S. anglicus",
                            species == "maritima" ~ "S. maritimus",
                            species == "alterniflora" ~ "S. alterniflorus")) %>%
+  mutate(species = if_else(species %in% c("S. alterniflorus", "S. maritimus", "S. anglicus"), glue("<i>{species}</i>"), species)) %>%
   right_join(soil) %>%
   mutate(species=case_when(sample %in% c("C1", "C2", "C3") ~ "Control",
                            !(sample %in% c("C1", "C2", "C3")) ~ species)) %>% 
-  #drop_na() %>%
   set_colnames(c("sample", "species", "locality", "labnum", "ph", "EC", "dryweight", "nitrogen", "carbon")) %>%
   filter(!(is.na(species)))
 
@@ -36,7 +40,11 @@ common_theme <- theme(axis.text.x = element_text(angle = 30, vjust = 1, hjust=1)
                       #plot.margin = margin(1.5, 1.5, 1.5, 1.5, "cm")
                       )
 
+
+
+
 nitrogen_plot <- soil %>% 
+  mutate(species = fct_relevel(species, "Control", "<i>S. alterniflorus</i>", "<i>S. anglicus</i>", "<i>S. maritimus</i>")) %>%
   ggplot(aes(x=species, y=nitrogen, fill=species)) + 
   geom_boxplot(width = 0.6) +
   common_theme +
@@ -45,9 +53,11 @@ nitrogen_plot <- soil %>%
   geom_signif(
     test = "t.test",
     comparisons = list(c("S. anglicus", "S. alterniflorus"), c("S. alterniflorus", "S. maritimus"), c("S. anglicus", "S. maritimus")),
-    map_signif_level = TRUE, textsize = 6) 
+    map_signif_level = TRUE, textsize = 6) +
+  theme(axis.text.x = ggtext::element_markdown())
   
 carbon_plot <- soil %>% 
+  mutate(species = fct_relevel(species, "Control", "<i>S. alterniflorus</i>", "<i>S. anglicus</i>", "<i>S. maritimus</i>")) %>%
   ggplot(aes(x=species, y=carbon, fill=species)) + 
   geom_boxplot(width = 0.6) +
   common_theme +
@@ -56,9 +66,11 @@ carbon_plot <- soil %>%
   geom_signif(
     test = "t.test",
     comparisons = list(c("S. anglicus", "S. alterniflorus"), c("S. alterniflorus", "S. maritimus"), c("S. anglicus", "S. maritimus")),
-    map_signif_level = TRUE, textsize = 6) 
+    map_signif_level = TRUE, textsize = 6) +
+  theme(axis.text.x = ggtext::element_markdown())
 
 cnratio_plot <- soil %>% 
+  mutate(species = fct_relevel(species, "Control", "<i>S. alterniflorus</i>", "<i>S. anglicus</i>", "<i>S. maritimus</i>")) %>%
   ggplot(aes(x=species, y=carbon/nitrogen, fill=species)) + 
   geom_boxplot(width = 0.6) +
   common_theme +
@@ -67,9 +79,11 @@ cnratio_plot <- soil %>%
   geom_signif(
     test = "t.test",
     comparisons = list(c("S. anglicus", "S. alterniflorus"), c("S. alterniflorus", "S. maritimus"), c("S. anglicus", "S. maritimus")),
-    map_signif_level = TRUE, textsize = 6) 
+    map_signif_level = TRUE, textsize = 6) +
+  theme(axis.text.x = ggtext::element_markdown())
 
 ph_plot <- soil %>% 
+  mutate(species = fct_relevel(species, "Control", "<i>S. alterniflorus</i>", "<i>S. anglicus</i>", "<i>S. maritimus</i>")) %>%
   ggplot(aes(x=species, y=ph, fill=species)) + 
   geom_boxplot(width = 0.6) +
   common_theme +
@@ -78,36 +92,16 @@ ph_plot <- soil %>%
   geom_signif(
     test = "t.test",
     comparisons = list(c("S. anglicus", "S. alterniflorus"), c("S. alterniflorus", "S. maritimus"), c("S. anglicus", "S. maritimus")),
-    map_signif_level = TRUE, textsize = 6) 
+    map_signif_level = TRUE, textsize = 6) +
+  theme(axis.text.x = ggtext::element_markdown())
 
-
-
-
-
-
-#######################################
-#              composite              #
-#######################################
-
-
-png("Figure2_soil_chemistry_composite.png", width=1300, height=1400)
-# ((nitrogen_plot | carbon_plot) / (cnratio_plot | ph_plot))  | plot_spacer() + (lef_boxplot + phi2_boxplot) +
-#  plot_layout(widths = c(1, 5))
-chemistry <- (nitrogen_plot | carbon_plot | ph_plot)
-#photo_micro <- ((lef_boxplot / phi2_boxplot) | greenhouse_ordination) + plot_layout(widths = c(1, 2.5))
-#(chemistry / plot_spacer() / greenhouse_ordination) + plot_layout(heights = c(1, 0.3, 2))
-(chemistry / greenhouse_ordination) + 
-  plot_layout(heights = c(1, 1.75)) + 
-  plot_annotation(tag_levels = 'A') & 
-  theme(plot.tag = element_text(size = 35))
-dev.off()
 
 
 ############################################
 #     composite with greenhouse photo      #  
 ############################################
 
-greenhouse2_cropped <- readPNG("greenhouse2_cropped.png")
+#greenhouse2_cropped <- readPNG("greenhouse2_cropped.png")
 test1 <- ggplot() + 
   theme(panel.background = element_blank(),
         plot.margin = margin(0,0,0,0, "cm")) + 
@@ -118,33 +112,20 @@ test2 <- ggplot() +
         plot.margin = margin(0,0,0,0, "cm")) + 
   cowplot::draw_image("Maritima_LocoalMendon.png")
   
-  
-
 
 
 png("Figure2_soil_chemistry_composite_greenhouse_pic.png", width=1600, height=1400)
-# ((nitrogen_plot | carbon_plot) / (cnratio_plot | ph_plot))  | plot_spacer() + (lef_boxplot + phi2_boxplot) +
-#  plot_layout(widths = c(1, 5))
 chemistry <- (nitrogen_plot | carbon_plot | ph_plot)
-#photo_micro <- ((lef_boxplot / phi2_boxplot) | greenhouse_ordination) + plot_layout(widths = c(1, 2.5))
-#(chemistry / plot_spacer() / greenhouse_ordination) + plot_layout(heights = c(1, 0.3, 2))
-(chemistry / (test1 | test2)) + 
-  plot_layout(heights = c(1, 1)) + 
+photos <- (test1 | plot_spacer() | test2) + plot_layout(widths = c(5, -1.1, 5))
+(chemistry / plot_spacer() /photos) + 
+  plot_layout(heights = c(0.8, -0.01, 1)) + 
   plot_annotation(tag_levels = 'A') & 
   theme(plot.tag = element_text(size = 35))
 dev.off()
 
 
 
-#######################################
-#          chemistry only             #
-#######################################
 
-
-png("soil_chemistry_plots.png", width=1500, height=700)
-chemistry <- (nitrogen_plot | plot_spacer() | carbon_plot | plot_spacer() | ph_plot) 
-chemistry
-dev.off()
 
 
 ############################################
@@ -174,10 +155,6 @@ sample_mapping <- readxl::read_xlsx("/Users/katieemelianova/Desktop/Spartina/Spa
 sample_mapping$user_sample_id %<>% as.integer() %>% as.character()
 
 
-#sample_mapping <- read_tsv("/Users/katieemelianova/Desktop/Spartina/Spartina2025/Rennes_Sampling.tsv")
-
-#rownames(sample_mapping) <- sample_mapping$`Sample number`
-
 
 
 phylo_greenhouse@sam_data$Species <- left_join(data.frame(phylo_greenhouse@sam_data), sample_mapping, by = "user_sample_id") %>% pull(Species)
@@ -194,6 +171,12 @@ phylo_greenhouse_prop <- transform_sample_counts(phylo_greenhouse, function(otu)
 ord.nmds.bray_elevation <- ordinate(phylo_greenhouse_prop, method="NMDS", distance="bray")
 
 
+phylo_greenhouse_prop@sam_data$Species <- if_else(phylo_greenhouse_prop@sam_data$Species %in% c("S. alterniflorus", "S. maritimus", "S. anglicus"), glue("<i>{phylo_greenhouse_prop@sam_data$Species}</i>"), phylo_greenhouse_prop@sam_data$Species)
+
+phylo_greenhouse_prop@sam_data$Species <- fct_relevel(phylo_greenhouse_prop@sam_data$Species, "Control", "<i>S. alterniflorus</i>", "<i>S. anglicus</i>", "<i>S. maritimus</i>")
+
+  
+  
 greenhouse_ordination <- plot_ordination(phylo_greenhouse_prop, ord.nmds.bray_elevation, shape="compartment", color="Species", title="Bray NMDS") + 
   geom_point(size = 12) +
   theme(strip.text.x = element_text(size=30),
@@ -208,7 +191,8 @@ greenhouse_ordination <- plot_ordination(phylo_greenhouse_prop, ord.nmds.bray_el
         legend.box.background = element_rect(colour = "black"),
         panel.background = element_blank()) +
   ggtitle("") +
-  scale_colour_manual(values = c("grey60", "brown2", "palegreen3", "dodgerblue2"))
+  scale_colour_manual(values = c("grey60", "brown2", "palegreen3", "dodgerblue2")) +
+  theme(legend.text = ggtext::element_markdown())
 
 
 greenhouse_richness <- plot_richness(phylo_greenhouse_prop, x="compartment", measures=c("Shannon"), color="Species") +

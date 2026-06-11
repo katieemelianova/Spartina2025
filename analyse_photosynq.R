@@ -26,7 +26,9 @@ psynq$species %<>%
   str_replace("alterniflora", "Sporobolus alterniflorus") %>%
   str_replace("maritima", "Sporobolus maritimus")
   
-  
+
+
+
 
 # take the average of repeat measurements to get a single value per plant per metric
 mean_psynq <- psynq %>% 
@@ -111,11 +113,19 @@ t.test(x = mean_psynq %>% filter(species == "Sporobolus anglicus") %>% pull(tran
 # alterniflora has less going to photosynthesis and maritima has more going to photosynthesis
 # a significant difference betrween parents, and the hybrid has an intermediate efficiency of potosynthesis
 
+mean_psynq %>%
+  mutate(species = case_when(species == "Sporobolus alterniflorus" ~ "S. alterniflorus",
+                             species == "Sporobolus anglicus" ~"S. anglicus",
+                             species == "Sporobolus maritimus" ~ "S. maritimus")) %>%
+  mutate(species = glue("<i>{species}</i>")) %>%
+  pull(species)
+
 #png("phi2_per_species_boxplot.png", height=1500, width=1000)
 phi2_boxplot <- mean_psynq %>%
   mutate(species = case_when(species == "Sporobolus alterniflorus" ~ "S. alterniflorus",
                              species == "Sporobolus anglicus" ~"S. anglicus",
                              species == "Sporobolus maritimus" ~ "S. maritimus")) %>%
+  mutate(species = glue("<i>{species}</i>")) %>%
   ggplot(aes(x=species, y=Phi2, fill=species)) + 
   geom_boxplot(lwd=0.8) +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
@@ -128,8 +138,11 @@ phi2_boxplot <- mean_psynq %>%
         plot.margin = margin(1,1,1.5,1.2, "cm")) +
   geom_signif(
     test = "t.test",
-    comparisons = list(c("S. anglicus", "S. alterniflorus"), c("S. alterniflorus", "S. maritimus"), c("S. anglicus", "S. maritimus")),
-    map_signif_level = TRUE, textsize = 5) 
+    comparisons = list(c("<i>S. anglicus</i>", "<i>S. alterniflorus</i>"), 
+                       c("<i>S. alterniflorus</i>", "<i>S. maritimus</i>"), 
+                       c("<i>S. anglicus</i>", "<i>S. maritimus</i>")),
+    map_signif_level = TRUE, textsize = 5) +
+  theme(axis.text.x = ggtext::element_markdown())
 #dev.off()
 
 ##########################
@@ -168,10 +181,14 @@ t.test(x = mean_psynq %>% filter(species == "Sporobolus anglicus") %>% pull(tran
        alternative = c("two.sided"))
 
 
+
+
+
 lef_boxplot <- mean_psynq %>%
   mutate(species = case_when(species == "Sporobolus alterniflorus" ~ "S. alterniflorus",
                              species == "Sporobolus anglicus" ~"S. anglicus",
                              species == "Sporobolus maritimus" ~ "S. maritimus")) %>%
+  mutate(species = glue("<i>{species}</i>")) %>%
   ggplot(aes(x=species, y=LEF, fill=species)) + 
   geom_boxplot(lwd=0.8) +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
@@ -184,10 +201,13 @@ lef_boxplot <- mean_psynq %>%
         plot.margin = margin(1,1,1.5,1.2, "cm")) +
   geom_signif(
     test = "t.test",
-    comparisons = list(c("S. anglicus", "S. alterniflorus"), c("S. alterniflorus", "S. maritimus"), c("S. anglicus", "S. maritimus")),
-    map_signif_level = TRUE, textsize = 5) 
+    comparisons = list(c("<i>S. anglicus</i>", "<i>S. alterniflorus</i>"), 
+                       c("<i>S. alterniflorus</i>", "<i>S. maritimus</i>"), 
+                       c("<i>S. anglicus</i>", "<i>S. maritimus</i>")),
+    map_signif_level = TRUE, textsize = 5) +
+  theme(axis.text.x = ggtext::element_markdown())
 
 
-png("FigureS3_lef_ph2_boxplot.png", height=1000, width=800)
+png("FigureS3_lef_ph2_boxplot.png", height=1000, width=900)
 (lef_boxplot + phi2_boxplot)
 dev.off()
