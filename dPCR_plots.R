@@ -49,15 +49,15 @@ results %<>% mutate(copies_per_ul_converted=(copies_per_ul * (12/2) * dilution_f
 dpcr_result <- ggplot(results, aes(x=species, y=(copies_per_ul_converted), fill=species)) + 
   geom_boxplot() +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
-  theme(axis.title = element_text(size=20),
+  theme(axis.title = element_text(size=40),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.title.x = element_blank(),
-        axis.text.y = element_text(size=20),
+        axis.text.y = element_text(size=40),
         strip.background =element_rect(fill="skyblue2"),
         legend.title = element_blank(),
         legend.text = element_text(size=15)) +
-  ylab("16S Copies per Microlitre")
+  ylab("16S copies per gram of root")
 #dev.off()
 
 
@@ -107,6 +107,7 @@ phylo_rennes_plastid <- subset_taxa(phylo_rennes, Family %in% c("Mitochondria", 
 phylo_rennes_bacteria <- subset_taxa(phylo_rennes, !(Family %in% c("Mitochondria", "Chloroplast") | Order %in% c("Mitochondria", "Chloroplast")))
 
 
+
 # get relative abundance
 phylo_rennes_prop_plastid <- transform_sample_counts(phylo_rennes_plastid, function(otu) otu/sum(otu))
 phylo_rennes_prop_bacteria <- transform_sample_counts(phylo_rennes_bacteria, function(otu) otu/sum(otu))
@@ -122,12 +123,11 @@ bacteria_absolute_abundance <- phylo_rennes_prop_bacteria %>% ps_melt() %>%
   drop_na() %>%
   ggplot(aes(x=sample_Species, y=log(absolute_abundance))) + 
   geom_boxplot(aes(fill = sample_Species)) +
-  ylab("Absolute Abundance Bacteria") +
+  ylab("Total Microbial Abundance") +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank(),
-        axis.text = element_text(size=20),
-        axis.title.y = element_text(size = 20),
-        legend.text = element_text(size=20),
+        axis.text = element_text(size=40),
+        axis.title.y = element_text(size = 40),
         legend.title=element_blank()) +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) 
 #dev.off()
@@ -141,13 +141,13 @@ plastid_absolute_abundance <- phylo_rennes_prop_plastid %>% ps_melt() %>%
   drop_na() %>%
   ggplot(aes(x=sample_Species, y=log(absolute_abundance))) + 
   geom_boxplot(aes(fill = sample_Species)) +
-  ylab("Absolute Abundance Plastid") +
+  ylab("Plastid Abundance") +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank(),
-        axis.text = element_text(size=20),
-        axis.title.y = element_text(size = 20),
+        axis.text = element_text(size=40),
+        axis.title.y = element_text(size = 40),
         legend.title=element_blank(),
-        legend.text = element_text(size=15)) +
+        legend.text = element_text(size=30, face="italic")) +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2"))
 #dev.off()
 
@@ -156,11 +156,12 @@ plastid_absolute_abundance <- phylo_rennes_prop_plastid %>% ps_melt() %>%
 
 
 
-
+png("FigureS2_dPCR_results.png", height=600, width=1400)
 ((dpcr_result + theme(legend.position="none")) + 
     (bacteria_absolute_abundance + theme(legend.position="none")) + 
-    plastid_absolute_abundance)
-
+    plastid_absolute_abundance) + 
+  plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size = 40))
+dev.off()
 
 
 
