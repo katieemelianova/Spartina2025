@@ -34,9 +34,9 @@ sample_info <- read_tsv("/Users/katieemelianova/Desktop/Spartina/Spartina2025//R
   dplyr::select(Locality, Species, `Sample number`)
 
 
-######################################################################################
-#    filter on prevalence, set metadata and remove chloroplast and mitochondria      # 
-######################################################################################
+##############################################
+#    filter on prevalence, set metadata      # 
+##############################################
 
 # abundance and prevalence filter
 phylo_rennes <- tax_filter(
@@ -67,6 +67,39 @@ phylo_rennes@sam_data$Species %<>%
   str_replace("Spartina maritima", "Sporobolus maritimus") %>%
   str_replace("Spartina anglica", "Sporobolus anglicus")
 
+
+
+###############################################
+#         Chloroplast Only Ordination         #
+###############################################
+
+# set one phyloseq object as chloroplast only to see if we can detect phylogenetic signal
+phylo_rennes_chloroplast <- subset_samples(phylo_rennes, Species != "Unknown")
+phylo_rennes_chloroplast <- subset_taxa(phylo_rennes_chloroplast, Order %in% c("Chloroplast"))
+
+# now do a bray curtis plot but using onyly the chloroplast amplicons
+# the purpose of this is to confirm the maternal parent of spartina anglica as spartina alterniflora
+# also the plot can be used to confirm the expectation that no host dna is included in the 
+# rhizosphere/soil samples, as here do not cluster by phylogenetic expectations
+# the plot can be included as supplementary
+phylo_rennes_chloroplast_prop <- transform_sample_counts(phylo_rennes_chloroplast, function(otu) otu/sum(otu))
+ord.nmds.bray_chloroplast <- ordinate(phylo_rennes_chloroplast_prop, method="NMDS", distance="bray")
+
+png("Figure_S1_chloroplast_ordination.png", height=800, width=1000)
+plot_ordination(phylo_rennes_chloroplast_prop, ord.nmds.bray_chloroplast, color="Species", title="Bray NMDS", shape="compartment") + 
+  geom_point(size = 7) +
+  theme(strip.text.x = element_text(size=25),
+        axis.text.x = element_text(size=25),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size=25),
+        legend.title = element_blank(),
+        legend.text = element_text(size=20)) +
+  ggtitle("") +
+  scale_colour_discrete(guide = guide_legend(label.theme = element_text(angle = 0, face = "italic")))
+dev.off()
+
+
+
 ######################################
 #         plot ordination            # 
 ######################################
@@ -90,7 +123,8 @@ ordination_plot <- plot_ordination(phylo_rennes_prop, ord.nmds.bray_jr, color="S
         legend.text = element_text(size=32),
         panel.background = element_blank()) +
   ggtitle("") + 
-  scale_colour_manual(values=c("brown2", "palegreen3", "dodgerblue2"))
+  scale_colour_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
+  scale_colour_discrete(guide = guide_legend(label.theme = element_text(angle = 0, face = "italic")))
 #dev.off()
 
 
@@ -234,7 +268,19 @@ alt_root_rhizosphere_functions <- alt_root_rhizosphere %>% annotate_functional_g
 
 
 
-pdf("differentially_abundant_root_rhizosphere_ASV_perspecies.pdf", height=14, width=14)
+
+
+
+
+
+
+
+
+
+
+
+
+
 functional_da_asv_plot <- rbind(ang_root_rhizosphere_functions,
       mar_root_rhizosphere_functions,
       alt_root_rhizosphere_functions) %>%
@@ -250,10 +296,8 @@ functional_da_asv_plot <- rbind(ang_root_rhizosphere_functions,
     axis.title = element_text(size=30),
     axis.text = element_text(size=25),
     legend.title = element_blank(),
-    legend.text = element_text(size=31),
+    legend.text = element_text(size=31, face="italic"),
     legend.key.size = unit(0.45,"cm"))
-functional_da_asv_plot
-dev.off()
 
 ###########################################################################
 #  plot differentially abundant Genus between root and soil per species.  #
@@ -267,7 +311,7 @@ global_theme <- theme(strip.text.x = element_text(size = 30),
                      axis.text.y = element_text(size=25),
                      strip.text = element_text(size=30),
                      legend.title = element_blank(),
-                     legend.text = element_text(size=30),
+                     legend.text = element_text(size=30, face="italic"),
                      legend.justification = "left",
                      legend.key.size = unit(0.85,"cm"))
 
@@ -321,19 +365,28 @@ anglica_root_associated <- prune_taxa(ang_root_rhizosphere %>% filter(log2FoldCh
   ylab("Sporobolus anglicus RA") +
   xlab("Sample") 
 
-#png("abundance_of_DA_ASVs_sulfur_oxidising.png", width=800, height=700)
 rel_abundance_plot <- (alterniflora_root_associated / maritima_root_associated / anglica_root_associated) +  plot_layout(heights = c(1, 1, 1))
-#dev.off()
-
-png("ordination_plot.png", width=1100, height=700)
-ordination_plot
-dev.off()
 
 png("Figure1_panel.png", width=1900, height=1400)
 (rel_abundance_plot | (functional_da_asv_plot / ordination_plot)) +
   plot_layout(widths = c(1.2, 1)) + plot_annotation(tag_levels = 'A') & 
   theme(plot.tag = element_text(size = 35))
 dev.off() 
+
+
+
+####################################
+#.     END OF MANUSCRIPT FIGURES.  #
+####################################
+
+
+
+
+
+
+
+
+
 
 
 
@@ -423,76 +476,62 @@ present_in_all_soil <- get_present_in_all(phylo_rennes_prop_melt, "soil", 0.01)
 
 
 # boxplot
-min_abnundance0.1_families_root <- phylo_rennes_prop_melt %>% 
-  filter(Family %in% present_in_all_root & compartment == "root" & Abundance > 0.01) %>%
-  dplyr::select(Abundance, Family, sample_Species, Locality) %>%
-  ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
-  geom_boxplot(width = 0.6) +
-  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
-  facet_wrap(~Family, scales="free_x", ncol=5) +
-  theme(strip.text.x = element_text(size = 13),
-        axis.title = element_text(size=14),
-        axis.text.x = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.y = element_text(size=15),
-        strip.background =element_rect(fill="khaki3"),
-        strip.text = element_text(size=16),
-        legend.position="none") +
-  ylab("Log(Root Abundance)")
+#min_abnundance0.1_families_root <- phylo_rennes_prop_melt %>% 
+#  filter(Family %in% present_in_all_root & compartment == "root" & Abundance > 0.01) %>%
+#  dplyr::select(Abundance, Family, sample_Species, Locality) %>%
+#  ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
+#  geom_boxplot(width = 0.6) +
+#  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
+#  facet_wrap(~Family, scales="free_x", ncol=5) +
+#  theme(strip.text.x = element_text(size = 13),
+#        axis.title = element_text(size=14),
+#        axis.text.x = element_blank(),
+#        axis.title.x = element_blank(),
+#        axis.text.y = element_text(size=15),
+#        strip.background =element_rect(fill="khaki3"),
+#        strip.text = element_text(size=16),
+#        legend.position="none") +
+#  ylab("Log(Root Abundance)")
 
-min_abnundance0.1_families_rhizome <- phylo_rennes_prop_melt %>% 
-  filter(Family %in% present_in_all_rhizome & compartment == "rhizome" & Abundance > 0.01) %>%
-  dplyr::select(Abundance, Family, sample_Species, Locality) %>%
-  ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
-  geom_boxplot(width = 0.6) +
-  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
-  facet_wrap(~Family, scales="free_x", ncol=5) +
-  theme(strip.text.x = element_text(size = 13),
-        axis.title = element_text(size=14),
-        axis.text.x = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.y = element_text(size=15),
-        strip.background =element_rect(fill="skyblue2"),
-        strip.text = element_text(size=16)) +
-  ylab("Log(Rhizome Abundance)")
+#min_abnundance0.1_families_rhizome <- phylo_rennes_prop_melt %>% 
+#  filter(Family %in% present_in_all_rhizome & compartment == "rhizome" & Abundance > 0.01) %>%
+#  dplyr::select(Abundance, Family, sample_Species, Locality) %>%
+#  ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
+#  geom_boxplot(width = 0.6) +
+#  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
+#  facet_wrap(~Family, scales="free_x", ncol=5) +
+#  theme(strip.text.x = element_text(size = 13),
+#        axis.title = element_text(size=14),
+#        axis.text.x = element_blank(),
+#        axis.title.x = element_blank(),
+#        axis.text.y = element_text(size=15),
+#        strip.background =element_rect(fill="skyblue2"),
+#        strip.text = element_text(size=16)) +
+#  ylab("Log(Rhizome Abundance)")
 
-min_abnundance0.1_families_rhizosphere <- phylo_rennes_prop_melt %>% 
-  filter(Family %in% present_in_all_soil & compartment == "soil" & Abundance > 0.01) %>%
-  dplyr::select(Abundance, Family, sample_Species, Locality) %>%
-  ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
-  geom_boxplot(width = 0.6) +
-  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
-  facet_wrap(~Family, scales="free_x", ncol=5) +
-  theme(strip.text.x = element_text(size = 13),
-        axis.title = element_text(size=14),
-        axis.text.x = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.y = element_text(size=15),
-        strip.background =element_rect(fill="salmon1"),
-        legend.position="none",
-        strip.text = element_text(size=16)) +
-  ylab("Log(Rhizosphere Abundance)")
+#min_abnundance0.1_families_rhizosphere <- phylo_rennes_prop_melt %>% 
+#  filter(Family %in% present_in_all_soil & compartment == "soil" & Abundance > 0.01) %>%
+#  dplyr::select(Abundance, Family, sample_Species, Locality) %>%
+#  ggplot(aes(x=Family, y=log(Abundance), fill=sample_Species)) + 
+#  geom_boxplot(width = 0.6) +
+#  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
+#  facet_wrap(~Family, scales="free_x", ncol=5) +
+#  theme(strip.text.x = element_text(size = 13),
+#        axis.title = element_text(size=14),
+#        axis.text.x = element_blank(),
+#        axis.title.x = element_blank(),
+#        axis.text.y = element_text(size=15),
+#        strip.background =element_rect(fill="salmon1"),
+#        legend.position="none",
+#        strip.text = element_text(size=16)) +
+#  ylab("Log(Rhizosphere Abundance)")
+#
+#pdf("min_abnundance0.1_families_compartments.pdf", height=11, width=12)
+#png("min_abnundance0.1_families_compartments.png", height=100, width=100)
+#(min_abnundance0.1_families_root / min_abnundance0.1_families_rhizome / min_abnundance0.1_families_rhizosphere) +  plot_layout(heights = c(2, 2, 1))
+#dev.off()
 
-pdf("min_abnundance0.1_families_compartments.pdf", height=11, width=12)
-png("min_abnundance0.1_families_compartments.png", height=100, width=100)
-(min_abnundance0.1_families_root / min_abnundance0.1_families_rhizome / min_abnundance0.1_families_rhizosphere) +  plot_layout(heights = c(2, 2, 1))
-dev.off()
 
-
-# barplot
-subset_taxa(phylo_rennes_prop, Family %in% present_in_all) %>% 
-  subset_samples(compartment == "rhizome") %>%
-  subset_taxa(!(is.na(Family))) %>% 
-  tax_glom("Family") %>%
-  plot_bar(fill="Family") + facet_wrap(~sample_Species+Locality, scales="free_x", ncol=2) + 
-  theme(strip.text.x = element_text(size=20),
-        axis.text.x = element_blank(),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size=25),
-        legend.title = element_blank(),
-        legend.text = element_text(size=20),
-        axis.ticks.x = element_blank()) +
-  ylab("Relative Abundance")
 
 
 # 4. which families arefound only in one species?
@@ -577,36 +616,7 @@ plot_richness(phylo_rennes, x="compartment", measures=c("Shannon"), color="Speci
         legend.title = element_blank()) 
 
 
-###############################################
-#         Chloroplast Only Ordination         #
-###############################################
 
-# set one phyloseq object as chloroplast only to see if we can detect phylogenetic signal
-phylo_rennes_chloroplast <- subset_samples(phylo_rennes, Species != "Unknown")
-phylo_rennes_chloroplast <- subset_taxa(phylo_rennes_chloroplast, Order %in% c("Chloroplast"))
-
-# set another phyloseq object where we do not have chloroplast or mitochondria in for main analysis
-phylo_rennes <- subset_samples(phylo_rennes, Species != "Unknown")
-phylo_rennes <- subset_taxa(phylo_rennes, !(Family %in% c("Mitochondria", "Chloroplast"))) %>% subset_taxa(!(Order %in% c("Mitochondria", "Chloroplast")))
-# now do a bray curtis plot but using onyly the chloroplast amplicons
-# the purpose of this is to confirm the maternal parent of spartina anglica as spartina alterniflora
-# also the plot can be used to confirm the expectation that no host dna is included in the 
-# rhizosphere/soil samples, as here do not cluster by phylogenetic expectations
-# the plot can be included as supplementary
-phylo_rennes_chloroplast_prop <- transform_sample_counts(phylo_rennes_chloroplast, function(otu) otu/sum(otu))
-ord.nmds.bray_chloroplast <- ordinate(phylo_rennes_chloroplast_prop, method="NMDS", distance="bray")
-
-png("Figure_S1_chloroplast_ordination.png", height=800, width=1000)
-plot_ordination(phylo_rennes_chloroplast_prop, ord.nmds.bray_chloroplast, color="Species", title="Bray NMDS", shape="compartment") + 
-  geom_point(size = 7) +
-  theme(strip.text.x = element_text(size=25),
-        axis.text.x = element_text(size=25),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size=25),
-        legend.title = element_text(size=20),
-        legend.text = element_text(size=20)) +
-  ggtitle("")
-dev.off()
 
 
 
