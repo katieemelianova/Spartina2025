@@ -24,6 +24,8 @@ sulfur_oxidisers <- functional %>% dplyr::select(sulfur_oxidisers) %>% drop_na()
 iron_oxidisers <- functional %>% dplyr::select(iron_oxidisers) %>% drop_na() %>% pull() %>% str_replace_all("_", " ")
 nitrifiers <- functional %>% dplyr::select(nitrifiers) %>% drop_na() %>% pull() %>% str_replace_all("_", " ")
 
+# removing arcbacter because only one of them is a sulfur oxidiser
+sulfur_oxidisers <- sulfur_oxidisers[sulfur_oxidisers != "Arcobacter"]
 
 #####################################################
 #           Read in RDS and sample data             # 
@@ -199,13 +201,12 @@ distance(alterniflorus, method = "bray") %>% betadisper(alterniflorus_metadata$c
 phylo_rennes_plant <- phylo_rennes %>% subset_samples(compartment %in% c("Root", "Rhizome"))
 metadata <- as(sample_data(phylo_rennes_plant), "data.frame")
 perm_design <- how(nperm = 999, blocks = metadata$User_sample_ID_number)
-dist_matrix <- distance(phylo_rennes_plant, method = "bray")
+dist_matrix <- as.matrix(distance(phylo_rennes_plant, method = "bray"))
 #make sure order is same
 metadata <- metadata[rownames(dist_matrix), ]
 
-
-
-
+permanova_result <- adonis2(dist_matrix ~ Species * compartment, data = metadata, permutations = perm_design, by="terms")
+print(permanova_result)
 
 ###############
 #. root bray. #
@@ -257,23 +258,6 @@ wilcox.test(
   rhizome_comparison$dist_to_maritimus,
   paired = TRUE
 )
-
-
-
-
-
-
-permanova_result <- adonis2(dist_matrix ~ Species * compartment, data = metadata, permutations = perm_design, by="terms")
-print(permanova_result)
-
-dist_rhizo <- distance(phylo_rennes_plant, method = "bray")
-dist_rhizo <- betadisper(dist_rhizo, metadata$group)
-
-
-
-
-
-
 
 
 
@@ -486,8 +470,8 @@ global_theme <- theme(strip.text.x = element_text(size = 30),
                      legend.justification = "left",
                      legend.key.size = unit(0.85,"cm"))
 
-scale_colours <- scale_fill_manual(values = c("#D72000FF", "#FFAD0AFF", "#1BB6AFFF", "#9093A2FF", "#132157FF"), 
-                                   labels = c("Arcobacter", "Sedimenticola", "Sulfurimonas", "Sulfurovum", "C. Thiodiazotropha", "Thiolapillus"))
+scale_colours <- scale_fill_manual(values = c("#FFAD0AFF", "#1BB6AFFF", "#D72000FF", "#132157FF"), 
+                                   labels = c("Sedimenticola", "Sulfurimonas", "Sulfurovum", "C. Thiodiazotropha", "Thiolapillus"))
 
 
 
@@ -495,52 +479,64 @@ scale_colours <- scale_fill_manual(values = c("#D72000FF", "#FFAD0AFF", "#1BB6AF
 
 # alterniflora
 alterniflora_root_associated <- prune_taxa(alt_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>% # get the amplicons which are DA and prune to include only those
-  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Sporobolus alterniflorus") %>% # then subset the object to include only sampes which are in root and rhizosphere
+  subset_samples(compartment %in% c("Root") & Species == "Sporobolus alterniflorus") %>% # then subset the object to include only sampes which are in root and rhizosphere
   subset_taxa(Genus %in% (alt_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>% # then of those DA amplicons in root or rhizosphere samples, select only those where the Genus matches one in sulfur oxidiser list
   tax_glom("Genus") %>%
+  {
+    sample_data(.)$Species_facet <-
+      paste0("italic('", sample_data(.)$Species, "')")
+    .
+  } %>%
   plot_bar(fill="Genus") + 
-  facet_wrap(~compartment, scales="free_x", ncol=3) +
+  facet_wrap(~Species_facet, scales="free_x", ncol=3, labeller = label_parsed) +
   global_theme +
-  ylim(0, 0.2) +
-  scale_colours + 
-  ylab("Sporobolus alterniflorus RA")
+  ylim(0, 0.165) +
+  scale_colours +
+  ylab("")
 
 # maritima
 maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>%
-  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Sporobolus maritimus") %>%
+  subset_samples(compartment %in% c("Root") & Species == "Sporobolus maritimus") %>%
   subset_taxa(Genus %in% (mar_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>%
   tax_glom("Genus") %>%
+  {
+    sample_data(.)$Species_facet <-
+      paste0("italic('", sample_data(.)$Species, "')")
+    .
+  } %>%
   plot_bar(fill="Genus") + 
-  facet_wrap(~compartment, scales="free_x", ncol=3) +
+  facet_wrap(~Species_facet, scales="free_x", ncol=3, labeller = label_parsed) +
   global_theme +
-  ylim(0, 0.2) +
+  ylim(0, 0.165) +
   scale_colours + 
-  theme(strip.text.x = element_blank() , 
-        strip.background = element_blank()) + 
-  ylab("Sporobolus maritimus RA")
+  ylab("Root Relative Abundance")
 
 
 # anglica
 anglica_root_associated <- prune_taxa(ang_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>%
-  subset_samples(compartment %in% c("Root", "Rhizosphere") & Species == "Sporobolus anglicus") %>%
+  subset_samples(compartment %in% c("Root") & Species == "Sporobolus anglicus") %>%
   subset_taxa(Genus %in% (ang_root_rhizosphere_functions %>% filter(annot_func %in% c("sulfur oxidisers")) %>% pull(Genus))) %>%
   tax_glom("Genus") %>%
+  {
+    sample_data(.)$Species_facet <-
+      paste0("italic('", sample_data(.)$Species, "')")
+    .
+  } %>%
   plot_bar(fill="Genus") + 
-  facet_wrap(~compartment, scales="free_x", ncol=3) +
+  facet_wrap(~Species_facet, scales="free_x", ncol=3, labeller = label_parsed) +
   global_theme +
-  ylim(0, 0.2) +
+  ylim(0, 0.165) +
   scale_colours + 
-  theme(strip.text.x = element_blank() , 
-        strip.background = element_blank(),
-          axis.title.x = element_text(size=30)) + 
-  ylab("Sporobolus anglicus RA") +
-  xlab("Sample") 
+  theme(axis.title.x = element_text(size=30)) + 
+  xlab("Sample") +
+  ylab("")
+
 
 rel_abundance_plot <- (alterniflora_root_associated / maritima_root_associated / anglica_root_associated) +  plot_layout(heights = c(1, 1, 1))
 
-png("Figure1_panel.png", width=1900, height=1400)
+png("Figure1_panel2.png", width=1900, height=1400)
 (rel_abundance_plot | (functional_da_asv_plot / ordination_plot)) +
-  plot_layout(widths = c(1.2, 1)) + plot_annotation(tag_levels = 'A') & 
+  plot_layout(widths = c(1.1, 1)) + plot_annotation(tag_levels = 'A') & 
   theme(plot.tag = element_text(size = 35))
 dev.off() 
 

@@ -7,6 +7,8 @@ library(tidyverse)
 library(ggplot2)
 library(janitor)
 library(patchwork)
+library(rstatix)
+
 
 sample_mapping <- read_delim("~/Desktop/Spartina/Spartina2025/Rennes_Sampling.tsv") %>% 
   dplyr::select(`Sample number`, "Species") %>%
@@ -60,6 +62,13 @@ dpcr_result <- ggplot(results, aes(x=species, y=(copies_per_ul_converted), fill=
   ylab("16S copies per gram of root")
 #dev.off()
 
+
+###################################################
+#    test whether aglicus different from parents. #
+###################################################
+
+
+results %>% dunn_test(copies_per_ul_converted ~ species, p.adjust.method = "BH")
 
 
 ##################################################################
