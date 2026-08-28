@@ -130,6 +130,177 @@ ordination_plot <- plot_ordination(phylo_rennes_prop, ord.nmds.bray_jr, color="S
 
 
 
+############################################
+#           rarefy and shannon             #
+############################################
+
+
+
+phylo_rarefied <- rarefy_even_depth(phylo_rennes, sample.size = min(sample_sums(phylo_rennes)),
+                                              rngseed = 1, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
+
+alpha_df <- estimate_richness(phylo_rarefied, measures = c("Shannon"))
+meta_df <- data.frame(sample_data(phylo_rennes))
+alpha_merged <- cbind(alpha_df, meta_df) %>% dplyr::select(Shannon, compartment, Locality, Species)
+
+alpha_merged %>% group_by(compartment, Species) %>% summarise(meanalpha=mean(Shannon))
+
+alpha_diversity <- plot_richness(phylo_rarefied, x = "compartment", measures = c("Shannon")) + 
+  geom_boxplot(aes(fill = Species)) +
+  facet_wrap(~Species)
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.y = element_text(size=20),
+        axis.title = element_text(size=25),
+        strip.text.x = element_text(size=25),
+        legend.text = element_text(size=25),
+        legend.title = element_blank())
+
+
+
+
+###########################################################
+# compare dispersion of rhizosphere to root and rhizome   #
+###########################################################
+
+
+
+# dispersion 
+anglicus <- phylo_rennes %>% subset_samples(Species %in% c("Sporobolus anglicus"))
+anglicus_metadata <- as(sample_data(anglicus), "data.frame")
+distance(anglicus, method = "bray") %>% betadisper(anglicus_metadata$compartment) %>% TukeyHSD()
+
+maritimus <- phylo_rennes %>% subset_samples(Species %in% c("Sporobolus maritimus"))
+maritimus_metadata <- as(sample_data(maritimus), "data.frame")
+distance(maritimus, method = "bray") %>% betadisper(maritimus_metadata$compartment) %>% TukeyHSD()
+
+alterniflorus <- phylo_rennes %>% subset_samples(Species %in% c("Sporobolus alterniflorus"))
+alterniflorus_metadata <- as(sample_data(alterniflorus), "data.frame")
+distance(alterniflorus, method = "bray") %>% betadisper(alterniflorus_metadata$compartment) %>% TukeyHSD()
+
+# PUT RESULTS INTO TABLE SUPPLEMENTARY
+
+
+
+
+########################################################################################
+# show anglicus rhizome clusters with alterniflorus and root clusters with maritimus   #
+########################################################################################
+
+
+
+# first I need to show that anglicus root and rhizome clusters more distantly than alterniflorus and maritimus root and rhizome
+
+# then I need to show that anglicus root clusters closer with maritimus root and that anglisu rhizome clusters closer with alterniflorus rhozome
+
+# so far I have this
+
+phylo_rennes_plant <- phylo_rennes %>% subset_samples(compartment %in% c("Root", "Rhizome"))
+metadata <- as(sample_data(phylo_rennes_plant), "data.frame")
+perm_design <- how(nperm = 999, blocks = metadata$User_sample_ID_number)
+dist_matrix <- distance(phylo_rennes_plant, method = "bray")
+#make sure order is same
+metadata <- metadata[rownames(dist_matrix), ]
+
+
+
+
+
+###############
+#. root bray. #
+###############
+
+root <- phylo_rennes %>% subset_samples(compartment == "Root")
+root_meta <- as(sample_data(root), "data.frame")
+root_bray <- as.matrix(distance(root, method = "bray"))
+root_meta$sample_id <- rownames(root_meta)
+root_meta <- root_meta[rownames(root_bray), ]
+ang_root <- root_meta %>% filter(Species == "Sporobolus anglicus")
+mar_root <- root_meta %>% filter(Species == "Sporobolus maritimus")
+alt_root <- root_meta %>% filter(Species == "Sporobolus alterniflorus")
+
+root_comparison <- ang_root %>%
+  rowwise() %>%
+  mutate(dist_to_maritimus = mean(root_bray[sample_id, mar_root$sample_id]),
+         dist_to_alterniflorus = mean(root_bray[sample_id, alt_root$sample_id])) %>%
+  ungroup()
+
+wilcox.test(
+  root_comparison$dist_to_maritimus,
+  root_comparison$dist_to_alterniflorus,
+  paired = TRUE
+)
+
+###############
+#. root bray. #
+###############
+
+rhizome <- phylo_rennes %>% subset_samples(compartment == "Rhizome")
+rhizome_meta <- as(sample_data(rhizome), "data.frame")
+rhizome_bray <- as.matrix(distance(rhizome, method = "bray"))
+rhizome_meta$sample_id <- rownames(rhizome_meta)
+rhizome_meta <- rhizome_meta[rownames(rhizome_bray), ]
+ang_rhizome <- rhizome_meta %>% filter(Species == "Sporobolus anglicus")
+mar_rhizome <- rhizome_meta %>% filter(Species == "Sporobolus maritimus")
+alt_rhizome <- rhizome_meta %>% filter(Species == "Sporobolus alterniflorus")
+
+rhizome_comparison <- ang_rhizome %>%
+  rowwise() %>%
+  mutate(dist_to_maritimus = mean(rhizome_bray[sample_id, mar_rhizome$sample_id]),
+    dist_to_alterniflorus = mean(rhizome_bray[sample_id, alt_rhizome$sample_id])) %>%
+  ungroup()
+
+
+wilcox.test(
+  rhizome_comparison$dist_to_alterniflorus,
+  rhizome_comparison$dist_to_maritimus,
+  paired = TRUE
+)
+
+
+
+
+
+
+permanova_result <- adonis2(dist_matrix ~ Species * compartment, data = metadata, permutations = perm_design, by="terms")
+print(permanova_result)
+
+dist_rhizo <- distance(phylo_rennes_plant, method = "bray")
+dist_rhizo <- betadisper(dist_rhizo, metadata$group)
+
+
+
+
+
+
+
+
+
+
+
+###################################################
+#     get relative abundances of Ca Thio ASVs     #
+###################################################
+
+
+test <- phylo_rennes_prop %>% 
+  subset_taxa(Genus == "Geopsychrobacter") %>%
+  psmelt() %>%
+  filter(sample_Species == "Sporobolus alterniflorus")
+
+
+
+ggplot(test, aes(x = Sample, y = Abundance, fill = OTU)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(y = "Relative Abundance", x = "Sample", fill = "ASV") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  facet_wrap(~compartment)
+
+
+
+
 #####################################################
 #           differential abundance analysis         # 
 #####################################################
