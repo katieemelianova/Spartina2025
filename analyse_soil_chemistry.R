@@ -27,7 +27,8 @@ soil <- read_delim("/Users/katieemelianova/Desktop/Spartina/Spartina2025/spartin
   mutate(species=case_when(sample %in% c("C1", "C2", "C3") ~ "Control",
                            !(sample %in% c("C1", "C2", "C3")) ~ species)) %>% 
   set_colnames(c("sample", "species", "locality", "labnum", "ph", "EC", "dryweight", "nitrogen", "carbon")) %>%
-  filter(!(is.na(species)))
+  filter(!(is.na(species))) %>%
+  unique()
 
 common_theme <- theme(axis.text.x = element_text(angle = 30, vjust = 1, hjust=1),
                       legend.position="none",
@@ -39,6 +40,39 @@ common_theme <- theme(axis.text.x = element_text(angle = 30, vjust = 1, hjust=1)
                                          "inches")
                       #plot.margin = margin(1.5, 1.5, 1.5, 1.5, "cm")
                       )
+
+
+
+
+#######################################
+#        statsitical tests            #
+#######################################
+
+# soil chemistry
+
+
+
+TukeyHSD(aov(ph ~ species, data = soil))
+TukeyHSD(aov(carbon ~ species, data = soil))
+TukeyHSD(aov(nitrogen ~ species, data = soil))
+
+mod_ph <- lm(ph ~ species, data = soil)
+par(mfrow = c(2, 2))
+plot(mod_ph)
+
+mod_ph <- lm(carbon ~ species, data = soil)
+par(mfrow = c(2, 2))
+plot(mod_ph)
+
+mod_ph <- lm(nitrogen ~ species, data = soil)
+par(mfrow = c(2, 2))
+plot(mod_ph)
+
+
+car::leveneTest(carbon ~ species, data = soil)
+car::leveneTest(nitrogen ~ species, data = soil)
+car::leveneTest(ph ~ species, data = soil)
+
 
 
 

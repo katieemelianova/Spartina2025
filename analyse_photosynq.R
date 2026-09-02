@@ -208,6 +208,6 @@ lef_boxplot <- mean_psynq %>%
   theme(axis.text.x = ggtext::element_markdown())
 
 
-png("FigureS3_lef_ph2_boxplot.png", height=1000, width=900)
+png("FigureS5_lef_ph2_boxplot.png", height=1000, width=900)
 (lef_boxplot + phi2_boxplot)
 dev.off()

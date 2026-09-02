@@ -21,6 +21,7 @@ root_weights <- readxl::read_excel("JMF-2508-06_rootweights.xlsx") %>%
 
 # read in ddpcr results and change relevant column to numeric
 ddpcr <- read.csv("~/Desktop/Spartina/Spartina2025/ddPCR/DOME-SD-SPARTINA16S-RUN1_analysis_31_03_2026_08_33_15_UTC+02_00.csv", skip = 2)
+writexl::write_xlsx(ddpcr, "~/Desktop/Spartina/Spartina2025/ddPCR/dPCR_results_submission.xlsx")
 ddpcr$Conc...cp.µL...undiluted.sample. %<>% as.numeric()
 
 # read in PCR results and JMF samplesheet to cross-reference sample names
@@ -79,8 +80,6 @@ results %>% dunn_test(copies_per_ul_converted ~ species, p.adjust.method = "BH")
 phylo_rennes <- readRDS("/Users/katieemelianova/Desktop/Spartina/JMF_results/JMF-2508-06_16S_raw_phyloseq.rds")
 sample_info <- read_tsv("/Users/katieemelianova/Desktop/Spartina/Spartina2025//Rennes_Sampling.tsv") %>% 
   dplyr::select(Locality, Species, `Sample number`)
-
-
   
 
 
@@ -165,7 +164,7 @@ plastid_absolute_abundance <- phylo_rennes_prop_plastid %>% ps_melt() %>%
 
 
 
-png("FigureS2_dPCR_results.png", height=600, width=1400)
+png("FigureS3_dPCR_results.png", height=600, width=1400)
 ((dpcr_result + theme(legend.position="none")) + 
     (bacteria_absolute_abundance + theme(legend.position="none")) + 
     plastid_absolute_abundance) + 

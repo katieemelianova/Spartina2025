@@ -142,23 +142,36 @@ phylo_rarefied <- rarefy_even_depth(phylo_rennes, sample.size = min(sample_sums(
                                               rngseed = 1, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
 
 alpha_df <- estimate_richness(phylo_rarefied, measures = c("Shannon"))
+
+# test if data is normally distributed
+alpha_df$Shannon %>% shapiro.test
+
+# no it is not, so use a wilcoxon rank sum test to test for difference between groups
+
+
+# first get metadata and merge in data
 meta_df <- data.frame(sample_data(phylo_rennes))
 alpha_merged <- cbind(alpha_df, meta_df) %>% dplyr::select(Shannon, compartment, Locality, Species)
+
+# do the test
+pairwise.wilcox.test(alpha_merged$Shannon, alpha_merged$Species, p.adjust.method = "bonf")
 
 alpha_merged %>% group_by(compartment, Species) %>% summarise(meanalpha=mean(Shannon))
 
 alpha_diversity <- plot_richness(phylo_rarefied, x = "compartment", measures = c("Shannon")) + 
   geom_boxplot(aes(fill = Species)) +
-  facet_wrap(~Species)
-  theme(axis.text.x = element_blank(),
+  facet_wrap(~Species) +
+  theme(axis.text.x = element_text(size=20, angle = 45, hjust=1, vjust=1),
         axis.ticks.x = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size=25),
-        strip.text.x = element_text(size=25),
-        legend.text = element_text(size=25),
-        legend.title = element_blank())
-
+        axis.text.y = element_text(size=30),
+        axis.title = element_text(size=30),
+        strip.text.x = element_text(size=20),
+        legend.position = "none") + 
+  scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2"))
+  
+png("FigureS2_alpha_diversity.png", width=700, height=600)
+alpha_diversity
+dev.off()
 
 
 
@@ -167,24 +180,28 @@ alpha_diversity <- plot_richness(phylo_rarefied, x = "compartment", measures = c
 ###########################################################
 
 
-
 # dispersion 
 anglicus <- phylo_rennes %>% subset_samples(Species %in% c("Sporobolus anglicus"))
 anglicus_metadata <- as(sample_data(anglicus), "data.frame")
-distance(anglicus, method = "bray") %>% betadisper(anglicus_metadata$compartment) %>% TukeyHSD()
+anglicus_betadisper <- distance(anglicus, method = "bray") %>% betadisper(anglicus_metadata$compartment) %>% TukeyHSD()
 
 maritimus <- phylo_rennes %>% subset_samples(Species %in% c("Sporobolus maritimus"))
 maritimus_metadata <- as(sample_data(maritimus), "data.frame")
-distance(maritimus, method = "bray") %>% betadisper(maritimus_metadata$compartment) %>% TukeyHSD()
+maritimus_betadisper <- distance(maritimus, method = "bray") %>% betadisper(maritimus_metadata$compartment) %>% TukeyHSD()
 
 alterniflorus <- phylo_rennes %>% subset_samples(Species %in% c("Sporobolus alterniflorus"))
 alterniflorus_metadata <- as(sample_data(alterniflorus), "data.frame")
-distance(alterniflorus, method = "bray") %>% betadisper(alterniflorus_metadata$compartment) %>% TukeyHSD()
+alterniflorus_betadisper <- distance(alterniflorus, method = "bray") %>% betadisper(alterniflorus_metadata$compartment) %>% TukeyHSD()
 
 # PUT RESULTS INTO TABLE SUPPLEMENTARY
 
-
-
+# usign this to get results to copy and paste into supplementary tables
+rbind((anglicus_betadisper$group %>% data.frame() %>% mutate(species ="Sporobolus anglicus")),
+      (maritimus_betadisper$group %>% data.frame() %>% mutate(species ="Sporobolus maritimus")),
+      (alterniflorus_betadisper$group %>% data.frame() %>% mutate(species ="Sporobolus alterniflorus"))) %>%
+  rownames_to_column("comparison") %>%
+  writexl::write_xlsx("betadispersiuon.xlsx")
+  
 
 ########################################################################################
 # show anglicus rhizome clusters with alterniflorus and root clusters with maritimus   #
