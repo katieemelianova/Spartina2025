@@ -251,7 +251,7 @@ wilcox.test(
 )
 
 ###############
-#. root bray. #
+#. rhizome bray. #
 ###############
 
 rhizome <- phylo_rennes %>% subset_samples(compartment == "Rhizome")

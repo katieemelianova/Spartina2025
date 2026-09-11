@@ -53,6 +53,7 @@ common_theme <- theme(axis.text.x = element_text(angle = 30, vjust = 1, hjust=1)
 
 
 TukeyHSD(aov(ph ~ species, data = soil))
+summary(aov(ph ~ species, data = soil))
 TukeyHSD(aov(carbon ~ species, data = soil))
 TukeyHSD(aov(nitrogen ~ species, data = soil))
 
