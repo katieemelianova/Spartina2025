@@ -136,12 +136,12 @@ phi2_boxplot <- mean_psynq %>%
         axis.title.x = element_blank(),
         panel.background = element_blank(),
         plot.margin = margin(1,1,1.5,1.2, "cm")) +
-  geom_signif(
-    test = "t.test",
-    comparisons = list(c("<i>S. anglicus</i>", "<i>S. alterniflorus</i>"), 
-                       c("<i>S. alterniflorus</i>", "<i>S. maritimus</i>"), 
-                       c("<i>S. anglicus</i>", "<i>S. maritimus</i>")),
-    map_signif_level = TRUE, textsize = 5) +
+  #geom_signif(
+  #  test = "t.test",
+  #  comparisons = list(c("<i>S. anglicus</i>", "<i>S. alterniflorus</i>"), 
+  #                     c("<i>S. alterniflorus</i>", "<i>S. maritimus</i>"), 
+  #                     c("<i>S. anglicus</i>", "<i>S. maritimus</i>")),
+  #  map_signif_level = TRUE, textsize = 5) +
   theme(axis.text.x = ggtext::element_markdown())
 #dev.off()
 
@@ -199,15 +199,15 @@ lef_boxplot <- mean_psynq %>%
         axis.title.x = element_blank(),
         panel.background = element_blank(),
         plot.margin = margin(1,1,1.5,1.2, "cm")) +
-  geom_signif(
-    test = "t.test",
-    comparisons = list(c("<i>S. anglicus</i>", "<i>S. alterniflorus</i>"), 
-                       c("<i>S. alterniflorus</i>", "<i>S. maritimus</i>"), 
-                       c("<i>S. anglicus</i>", "<i>S. maritimus</i>")),
-    map_signif_level = TRUE, textsize = 5) +
+  #geom_signif(
+  #  test = "t.test",
+  #  comparisons = list(c("<i>S. anglicus</i>", "<i>S. alterniflorus</i>"), 
+  #                     c("<i>S. alterniflorus</i>", "<i>S. maritimus</i>"), 
+  #                     c("<i>S. anglicus</i>", "<i>S. maritimus</i>")),
+  #  map_signif_level = TRUE, textsize = 5) +
   theme(axis.text.x = ggtext::element_markdown())
 
 
-png("FigureS5_lef_ph2_boxplot.png", height=1000, width=900)
+png("FigureS3_lef_ph2_boxplot.png", height=1000, width=900)
 (lef_boxplot + phi2_boxplot)
 dev.off()

@@ -201,17 +201,17 @@ phylo_greenhouse@sam_data$Species %<>% str_replace("Spartina maritima", "S. mari
 phylo_greenhouse@sam_data$Species %<>% str_replace("Spartina alternifllora", "S. alterniflorus")
 
 
-
+# transform sample to relative abundance and remove chloroplast and mitochonria and unknowns
+phylo_greenhouse <- prune_samples(sample_sums(phylo_greenhouse) >= 1000, phylo_greenhouse)
+set.seed(1)
+phylo_greenhouse <- rarefy_even_depth(phylo_greenhouse, sample.size = min(sample_sums(phylo_greenhouse)), replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
 phylo_greenhouse_prop <- transform_sample_counts(phylo_greenhouse, function(otu) otu/sum(otu))
 ord.nmds.bray_elevation <- ordinate(phylo_greenhouse_prop, method="NMDS", distance="bray")
 
 
 phylo_greenhouse_prop@sam_data$Species <- if_else(phylo_greenhouse_prop@sam_data$Species %in% c("S. alterniflorus", "S. maritimus", "S. anglicus"), glue("<i>{phylo_greenhouse_prop@sam_data$Species}</i>"), phylo_greenhouse_prop@sam_data$Species)
-
 phylo_greenhouse_prop@sam_data$Species <- fct_relevel(phylo_greenhouse_prop@sam_data$Species, "Control", "<i>S. alterniflorus</i>", "<i>S. anglicus</i>", "<i>S. maritimus</i>")
 
-  
-  
 greenhouse_ordination <- plot_ordination(phylo_greenhouse_prop, ord.nmds.bray_elevation, shape="compartment", color="Species", title="Bray NMDS") + 
   geom_point(size = 12) +
   theme(strip.text.x = element_text(size=30),

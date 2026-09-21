@@ -48,7 +48,7 @@ results <- inner_join(concentrations, sample_mapping, by="User sample ID") %>%
 dilution_factor <- 100000
 results %<>% mutate(copies_per_ul_converted=(copies_per_ul * (12/2) * dilution_factor)/`Biomass in g`)
 
-#png("FigureS2_16S_copies_barplot.png", height=500, width=500)
+#png("FigureS1_16S_copies_barplot.png", height=500, width=500)
 dpcr_result <- ggplot(results, aes(x=species, y=(copies_per_ul_converted), fill=species)) + 
   geom_boxplot() +
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
@@ -61,6 +61,7 @@ dpcr_result <- ggplot(results, aes(x=species, y=(copies_per_ul_converted), fill=
         legend.title = element_blank(),
         legend.text = element_text(size=15)) +
   ylab("16S copies per gram of root")
+dpcr_result
 #dev.off()
 
 
@@ -164,7 +165,7 @@ plastid_absolute_abundance <- phylo_rennes_prop_plastid %>% ps_melt() %>%
 
 
 
-png("FigureS3_dPCR_results.png", height=600, width=1400)
+png("FigureS2_dPCR_results.png", height=600, width=1400)
 ((dpcr_result + theme(legend.position="none")) + 
     (bacteria_absolute_abundance + theme(legend.position="none")) + 
     plastid_absolute_abundance) + 

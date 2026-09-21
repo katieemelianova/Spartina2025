@@ -35,7 +35,6 @@ phylo_rennes <- readRDS("/Users/katieemelianova/Desktop/Spartina/JMF_results/JMF
 sample_info <- read_tsv("/Users/katieemelianova/Desktop/Spartina/Spartina2025//Rennes_Sampling.tsv") %>% 
   dplyr::select(Locality, Species, `Sample number`)
 
-
 ##############################################
 #    filter on prevalence, set metadata      # 
 ##############################################
@@ -71,37 +70,6 @@ phylo_rennes@sam_data$Species %<>%
 
 
 
-###############################################
-#         Chloroplast Only Ordination         #
-###############################################
-
-# set one phyloseq object as chloroplast only to see if we can detect phylogenetic signal
-phylo_rennes_chloroplast <- subset_samples(phylo_rennes, Species != "Unknown")
-phylo_rennes_chloroplast <- subset_taxa(phylo_rennes_chloroplast, Order %in% c("Chloroplast"))
-
-# now do a bray curtis plot but using onyly the chloroplast amplicons
-# the purpose of this is to confirm the maternal parent of spartina anglica as spartina alterniflora
-# also the plot can be used to confirm the expectation that no host dna is included in the 
-# rhizosphere/soil samples, as here do not cluster by phylogenetic expectations
-# the plot can be included as supplementary
-phylo_rennes_chloroplast_prop <- transform_sample_counts(phylo_rennes_chloroplast, function(otu) otu/sum(otu))
-ord.nmds.bray_chloroplast <- ordinate(phylo_rennes_chloroplast_prop, method="NMDS", distance="bray")
-
-png("Figure_S1_chloroplast_ordination.png", height=800, width=1000)
-plot_ordination(phylo_rennes_chloroplast_prop, ord.nmds.bray_chloroplast, color="Species", title="Bray NMDS", shape="compartment") + 
-  geom_point(size = 7) +
-  theme(strip.text.x = element_text(size=25),
-        axis.text.x = element_text(size=25),
-        axis.text.y = element_text(size=20),
-        axis.title = element_text(size=25),
-        legend.title = element_blank(),
-        legend.text = element_text(size=20)) +
-  ggtitle("") +
-  scale_colour_discrete(guide = guide_legend(label.theme = element_text(angle = 0, face = "italic")))
-dev.off()
-
-
-
 ######################################
 #         plot ordination            # 
 ######################################
@@ -110,11 +78,15 @@ dev.off()
 phylo_rennes <- subset_samples(phylo_rennes, compartment != "Unknown")
 phylo_rennes <- subset_samples(phylo_rennes, Species != "Unknown")
 phylo_rennes <- subset_taxa(phylo_rennes, !(Family %in% c("Mitochondria", "Chloroplast"))) %>% subset_taxa(!(Order %in% c("Mitochondria", "Chloroplast")))
+phylo_rennes <- prune_samples(sample_sums(phylo_rennes) >= 2000, phylo_rennes)
+set.seed(1)
+phylo_rennes <- rarefy_even_depth(phylo_rennes, sample.size = min(sample_sums(phylo_rennes)), replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
 phylo_rennes_prop <- transform_sample_counts(phylo_rennes, function(otu) otu/sum(otu))
+
+
 ord.nmds.bray_jr <- ordinate(phylo_rennes_prop, method="NMDS", distance="bray")
 
 ## plot ordination plot
-#png("ordination_plot.png", height=700, width=800)
 ordination_plot <- plot_ordination(phylo_rennes_prop, ord.nmds.bray_jr, color="Species", title="Bray NMDS", shape="compartment") + 
   geom_point(size = 8) +
   theme(strip.text.x = element_text(size=30),
@@ -127,21 +99,19 @@ ordination_plot <- plot_ordination(phylo_rennes_prop, ord.nmds.bray_jr, color="S
   ggtitle("") + 
   scale_colour_manual(values=c("brown2", "palegreen3", "dodgerblue2")) +
   scale_colour_discrete(guide = guide_legend(label.theme = element_text(angle = 0, face = "italic")))
-#dev.off()
 
 
 
 
-############################################
-#           rarefy and shannon             #
-############################################
+
+
+#################################
+#           shannon             #
+#################################
 
 
 
-phylo_rarefied <- rarefy_even_depth(phylo_rennes, sample.size = min(sample_sums(phylo_rennes)),
-                                              rngseed = 1, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
-
-alpha_df <- estimate_richness(phylo_rarefied, measures = c("Shannon"))
+alpha_df <- estimate_richness(phylo_rennes, measures = c("Shannon", "Observed"))
 
 # test if data is normally distributed
 alpha_df$Shannon %>% shapiro.test
@@ -158,21 +128,29 @@ pairwise.wilcox.test(alpha_merged$Shannon, alpha_merged$Species, p.adjust.method
 
 alpha_merged %>% group_by(compartment, Species) %>% summarise(meanalpha=mean(Shannon))
 
-alpha_diversity <- plot_richness(phylo_rarefied, x = "compartment", measures = c("Shannon")) + 
+
+alpha_diversity <- 
+  phylo_rennes %>%
+  {
+    sample_data(.)$Species_facet <-
+      paste0("italic('", sample_data(.)$Species, "')")
+    .
+  } %>%
+  plot_richness(x = "compartment", measures = c("Shannon")) + 
   geom_boxplot(aes(fill = Species)) +
-  facet_wrap(~Species) +
+  facet_wrap(~Species_facet, labeller = label_parsed) +
   theme(axis.text.x = element_text(size=20, angle = 45, hjust=1, vjust=1),
         axis.ticks.x = element_blank(),
         axis.text.y = element_text(size=30),
         axis.title = element_text(size=30),
         strip.text.x = element_text(size=20),
         legend.position = "none") + 
+  xlab("Compartment")
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2"))
-  
-png("FigureS2_alpha_diversity.png", width=700, height=600)
+
+png("FigureS1_alpha_diversity.png", height=600, width=800)
 alpha_diversity
 dev.off()
-
 
 
 ###########################################################
@@ -204,100 +182,63 @@ rbind((anglicus_betadisper$group %>% data.frame() %>% mutate(species ="Sporobolu
   
 
 ########################################################################################
-# show anglicus rhizome clusters with alterniflorus and root clusters with maritimus   #
+# test for difference between species and compartment host associated tissue clusters   #
 ########################################################################################
 
+# first run adonis to test fr differences between compartments, species, and an interaction of both
 
-
-# first I need to show that anglicus root and rhizome clusters more distantly than alterniflorus and maritimus root and rhizome
-
-# then I need to show that anglicus root clusters closer with maritimus root and that anglisu rhizome clusters closer with alterniflorus rhozome
-
-# so far I have this
-
-phylo_rennes_plant <- phylo_rennes %>% subset_samples(compartment %in% c("Root", "Rhizome"))
-metadata <- as(sample_data(phylo_rennes_plant), "data.frame")
+#phylo_rennes_plant <- phylo_rennes %>% subset_samples(compartment %in% c("Root", "Rhizome"))
+metadata <- as(sample_data(phylo_rennes), "data.frame")
 perm_design <- how(nperm = 999, blocks = metadata$User_sample_ID_number)
-dist_matrix <- as.matrix(distance(phylo_rennes_plant, method = "bray"))
+dist_matrix <- as.matrix(distance(phylo_rennes, method = "bray"))
 #make sure order is same
 metadata <- metadata[rownames(dist_matrix), ]
 
 permanova_result <- adonis2(dist_matrix ~ Species * compartment, data = metadata, permutations = perm_design, by="terms")
 print(permanova_result)
 
-###############
-#. root bray. #
-###############
+# all three significant. Now we can see, per compartment, whether species are significantly different:
 
-root <- phylo_rennes %>% subset_samples(compartment == "Root")
-root_meta <- as(sample_data(root), "data.frame")
-root_bray <- as.matrix(distance(root, method = "bray"))
-root_meta$sample_id <- rownames(root_meta)
-root_meta <- root_meta[rownames(root_bray), ]
-ang_root <- root_meta %>% filter(Species == "Sporobolus anglicus")
-mar_root <- root_meta %>% filter(Species == "Sporobolus maritimus")
-alt_root <- root_meta %>% filter(Species == "Sporobolus alterniflorus")
+compartments <- unique(metadata$compartment)
 
-root_comparison <- ang_root %>%
-  rowwise() %>%
-  mutate(dist_to_maritimus = mean(root_bray[sample_id, mar_root$sample_id]),
-         dist_to_alterniflorus = mean(root_bray[sample_id, alt_root$sample_id])) %>%
-  ungroup()
-
-wilcox.test(
-  root_comparison$dist_to_maritimus,
-  root_comparison$dist_to_alterniflorus,
-  paired = TRUE
-)
-
-###############
-#. rhizome bray. #
-###############
-
-rhizome <- phylo_rennes %>% subset_samples(compartment == "Rhizome")
-rhizome_meta <- as(sample_data(rhizome), "data.frame")
-rhizome_bray <- as.matrix(distance(rhizome, method = "bray"))
-rhizome_meta$sample_id <- rownames(rhizome_meta)
-rhizome_meta <- rhizome_meta[rownames(rhizome_bray), ]
-ang_rhizome <- rhizome_meta %>% filter(Species == "Sporobolus anglicus")
-mar_rhizome <- rhizome_meta %>% filter(Species == "Sporobolus maritimus")
-alt_rhizome <- rhizome_meta %>% filter(Species == "Sporobolus alterniflorus")
-
-rhizome_comparison <- ang_rhizome %>%
-  rowwise() %>%
-  mutate(dist_to_maritimus = mean(rhizome_bray[sample_id, mar_rhizome$sample_id]),
-    dist_to_alterniflorus = mean(rhizome_bray[sample_id, alt_rhizome$sample_id])) %>%
-  ungroup()
+pairwise_species_by_compartment <- lapply(compartments, function(comp) {
+  sub_meta_comp <- metadata[metadata$compartment == comp, ]
+  species_list <- unique(sub_meta_comp$Species)
+  pairs <- combn(species_list, 2, simplify = FALSE)
+  
+  res_list <- lapply(pairs, function(pair) {
+    sub_meta <- sub_meta_comp[sub_meta_comp$Species %in% pair, ]
+    sub_dist <- as.dist(dist_matrix[rownames(sub_meta), rownames(sub_meta)])
+    res <- adonis2(sub_dist ~ Species, data = sub_meta, permutations = 999)
+    data.frame(
+      compartment = comp,
+      comparison = paste(pair, collapse = " vs "),
+      R2 = res$R2[1],
+      F  = res$F[1],
+      p  = res$`Pr(>F)`[1]
+    )
+  })
+  do.call(rbind, res_list)
+})
 
 
-wilcox.test(
-  rhizome_comparison$dist_to_alterniflorus,
-  rhizome_comparison$dist_to_maritimus,
-  paired = TRUE
-)
+pairwise_species_by_compartment_df <- do.call(rbind, pairwise_species_by_compartment)
+pairwise_species_by_compartment_df$p_adj <- p.adjust(pairwise_species_by_compartment_df$p, method = "BH")
+pairwise_species_by_compartment_df %>%
+  writexl::write_xlsx("pairwise_permanova.xlsx")
 
 
 
 
 
-###################################################
-#     get relative abundances of Ca Thio ASVs     #
-###################################################
-
-
-test <- phylo_rennes_prop %>% 
-  subset_taxa(Genus == "Geopsychrobacter") %>%
-  psmelt() %>%
-  filter(sample_Species == "Sporobolus alterniflorus")
 
 
 
-ggplot(test, aes(x = Sample, y = Abundance, fill = OTU)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  labs(y = "Relative Abundance", x = "Sample", fill = "ASV") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  facet_wrap(~compartment)
+
+
+
+
+
 
 
 
@@ -460,7 +401,7 @@ functional_da_asv_plot <- rbind(ang_root_rhizosphere_functions,
   geom_histogram(stat="count") +
   facet_wrap(~Species) +
   xlab("Functional Grouping") +
-  ylab("Number of root associated ASVs") + 
+  ylab("Observed richness in root associated ASVs") + 
   scale_fill_manual(values=c("brown2", "palegreen3", "dodgerblue2")) + 
   theme(strip.background = element_blank(),
     strip.text.x = element_blank(),
@@ -470,6 +411,11 @@ functional_da_asv_plot <- rbind(ang_root_rhizosphere_functions,
     legend.title = element_blank(),
     legend.text = element_text(size=31, face="italic"),
     legend.key.size = unit(0.45,"cm"))
+
+
+
+
+
 
 ###########################################################################
 #  plot differentially abundant Genus between root and soil per species.  #
@@ -487,12 +433,24 @@ global_theme <- theme(strip.text.x = element_text(size = 30),
                      legend.justification = "left",
                      legend.key.size = unit(0.85,"cm"))
 
-scale_colours <- scale_fill_manual(values = c("#FFAD0AFF", "#1BB6AFFF", "#D72000FF", "#132157FF"), 
-                                   labels = c("Sedimenticola", "Sulfurimonas", "Sulfurovum", "C. Thiodiazotropha", "Thiolapillus"))
 
+scale_colours <- scale_fill_manual(
+  values = c(
+    "Sedimenticola"        = "#FFAD0AFF",
+    "Sulfurimonas"         = "#1BB6AFFF",
+    "Sulfurovum"           = "#D72000FF",
+    "Candidatus Thiodiazotropha" = "#132157FF",  # use EXACT string from tax_table(phylo_rennes_prop)[, "Genus"]
+    "Thiolapillus"         = "pink"
+  ),
+  breaks = c("Sedimenticola", "Sulfurimonas", "Sulfurovum",
+             "Candidatus Thiodiazotropha", "Thiolapillus"),
+  labels = c("Sedimenticola", "Sulfurimonas", "Sulfurovum",
+             "C. Thiodiazotropha", "Thiolapillus")
+)
 
 
 # a quick note - the > or < sign matters here for which way the comparisonis shown (up in root vs rhizosphere or vice versa)
+
 
 # alterniflora
 alterniflora_root_associated <- prune_taxa(alt_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>% # get the amplicons which are DA and prune to include only those
@@ -506,10 +464,13 @@ alterniflora_root_associated <- prune_taxa(alt_root_rhizosphere %>% filter(log2F
   } %>%
   plot_bar(fill="Genus") + 
   facet_wrap(~Species_facet, scales="free_x", ncol=3, labeller = label_parsed) +
-  global_theme +
-  ylim(0, 0.165) +
+  global_theme  +
+  ylim(0, 0.2) +
   scale_colours +
   ylab("")
+  
+
+
 
 # maritima
 maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldChange > 0) %>% pull(amplicon), phylo_rennes_prop) %>%
@@ -523,10 +484,12 @@ maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldC
   } %>%
   plot_bar(fill="Genus") + 
   facet_wrap(~Species_facet, scales="free_x", ncol=3, labeller = label_parsed) +
-  global_theme +
-  ylim(0, 0.165) +
+  global_theme  +
+  ylim(0, 0.2) +
   scale_colours + 
   ylab("Root Relative Abundance")
+
+
 
 
 # anglica
@@ -541,17 +504,17 @@ anglica_root_associated <- prune_taxa(ang_root_rhizosphere %>% filter(log2FoldCh
   } %>%
   plot_bar(fill="Genus") + 
   facet_wrap(~Species_facet, scales="free_x", ncol=3, labeller = label_parsed) +
-  global_theme +
-  ylim(0, 0.165) +
+  global_theme  +
   scale_colours + 
   theme(axis.title.x = element_text(size=30)) + 
+  ylim(0, 0.2) +
   xlab("Sample") +
   ylab("")
 
 
 rel_abundance_plot <- (alterniflora_root_associated / maritima_root_associated / anglica_root_associated) +  plot_layout(heights = c(1, 1, 1))
 
-png("Figure1_panel2.png", width=1900, height=1400)
+png("Figure1_panel.png", width=1900, height=1400)
 (rel_abundance_plot | (functional_da_asv_plot / ordination_plot)) +
   plot_layout(widths = c(1.1, 1)) + plot_annotation(tag_levels = 'A') & 
   theme(plot.tag = element_text(size = 35))
