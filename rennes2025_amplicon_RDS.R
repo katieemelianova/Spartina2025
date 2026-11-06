@@ -8,6 +8,7 @@ library(tidyverse)
 library(DESeq2)
 library(phyloseq)
 library(patchwork)
+library(vegan)
 
 
 ######################################################################
@@ -279,6 +280,7 @@ phylo_rennes_deseq_root <- subset_samples(phylo_rennes, compartment == "Root") %
 phylo_rennes_deseq_rhizome <- subset_samples(phylo_rennes, compartment == "Rhizome") %>% run_deseq("0 + Species")
 phylo_rennes_deseq_soil <- subset_samples(phylo_rennes, compartment == "Rhizosphere") %>% run_deseq("0 + Species")
 
+
 phylo_rennes_deseq_alt_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Sporobolus alterniflorus" & compartment %in% c("Root", "Rhizosphere")) %>% run_deseq("0 + compartment")
 phylo_rennes_deseq_ang_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Sporobolus anglicus" & compartment %in% c("Root", "Rhizosphere")) %>% run_deseq("0 + compartment")
 phylo_rennes_deseq_mar_root_rhizosphere <- subset_samples(phylo_rennes, Species == "Sporobolus maritimus" & compartment %in% c("Root", "Rhizosphere")) %>% run_deseq("0 + compartment")
@@ -335,24 +337,23 @@ soil_ang_mar <- results(phylo_rennes_deseq_soil, contrast) %>% annotate_deseq_re
 
 
 
-
 #############################################
 #      alterniflora root vs rhizosphere     #
 #############################################
 
-alt_root_rhizosphere <- phylo_rennes_deseq_alt_root_rhizosphere %>% results() %>% annotate_deseq_results(phylo_rennes)
+alt_root_rhizosphere <- phylo_rennes_deseq_alt_root_rhizosphere %>% results(contrast = c("compartment", "Root", "Rhizosphere")) %>% annotate_deseq_results(phylo_rennes) %>% filter(log2FoldChange > 1)
 
 #############################################
 #       anglica root vs rhizosphere         #
 #############################################
 
-ang_root_rhizosphere <- phylo_rennes_deseq_ang_root_rhizosphere %>% results() %>% annotate_deseq_results(phylo_rennes)
+ang_root_rhizosphere <- phylo_rennes_deseq_ang_root_rhizosphere %>% results(contrast = c("compartment", "Root", "Rhizosphere")) %>% annotate_deseq_results(phylo_rennes) %>% filter(log2FoldChange > 1)
 
 #############################################
 #       maritima root vs rhizosphere        #
 #############################################
 
-mar_root_rhizosphere <- phylo_rennes_deseq_mar_root_rhizosphere %>% results() %>% annotate_deseq_results(phylo_rennes)
+mar_root_rhizosphere <- phylo_rennes_deseq_mar_root_rhizosphere %>% results(contrast = c("compartment", "Root", "Rhizosphere")) %>% annotate_deseq_results(phylo_rennes) %>% filter(log2FoldChange > 1)
 
 
 
@@ -434,6 +435,12 @@ global_theme <- theme(strip.text.x = element_text(size = 30),
                      legend.key.size = unit(0.85,"cm"))
 
 
+##########################################################################################
+#.     IMPORTANT NOTE the colour/name mapping here is specific to the findings.         #  
+#       If code is reused yoiu must first see which taxa are present to match them,     #
+#      otherwise incorrect colour mapping and taxobomic labelling will happen.          #
+#########################################################################################
+
 scale_colours <- scale_fill_manual(
   values = c(
     "Sedimenticola"        = "#FFAD0AFF",
@@ -488,8 +495,6 @@ maritima_root_associated <- prune_taxa(mar_root_rhizosphere %>% filter(log2FoldC
   ylim(0, 0.2) +
   scale_colours + 
   ylab("Root Relative Abundance")
-
-
 
 
 # anglica
